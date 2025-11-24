@@ -263,7 +263,7 @@ export async function updateLinkedInPost(
   id: string,
   updates: Partial<Omit<LinkedInPost, "id" | "characterCount">>
 ): Promise<void> {
-  const fields: Record<string, unknown> = {};
+  const fields: Airtable.FieldSet = {};
 
   if (updates.title) fields["Post Title"] = updates.title;
   if (updates.content) fields["Content"] = updates.content;
