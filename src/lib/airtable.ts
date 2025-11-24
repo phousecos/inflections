@@ -47,19 +47,82 @@ export async function getBrands(): Promise<Brand[]> {
     id: record.id,
     name: record.get("Brand Name") as string,
     shortName: record.get("Short Name") as string,
-    brandType: record.get("Brand Type") as Brand["brandType"],
-    websiteUrl: record.get("Website URL") as string | undefined,
+    brandType: mapBrandType(record.get("Brand Type") as string),
+    websiteUrl: record.get("Website") as string | undefined,
     linkedInPageUrl: record.get("LinkedIn Page URL") as string | undefined,
     linkedInPageId: record.get("LinkedIn Page ID") as string | undefined,
     primaryColor: record.get("Primary Color") as string,
     voiceSummary: record.get("Voice Summary") as string,
-    voiceProfile: JSON.parse((record.get("Voice Profile JSON") as string) || "{}"),
+    voiceProfile: parseVoiceProfile(record.get("Voice Profile JSON") as string),
     targetAudience: record.get("Target Audience") as string,
-    contentThemes: (record.get("Content Themes") as string)?.split("\n") || [],
-    crossBrandCTAs: JSON.parse((record.get("Cross-Brand CTAs") as string) || "{}"),
+    contentThemes: parseContentThemes(record.get("Content Themes") as string),
+    crossBrandCTAs: parseCrossBrandCTAs(record.get("Cross-Brand CTAs") as string),
     logoUrl: record.get("Logo URL") as string | undefined,
     isActive: record.get("Is Active") as boolean,
   }));
+}
+
+// Helper to map Airtable brand type values to code values
+function mapBrandType(type: string): Brand["brandType"] {
+  const mapping: Record<string, Brand["brandType"]> = {
+    "Service Brand": "service",
+    "Personal Brand": "personal",
+    "Non-Profit": "nonprofit",
+    "Product": "product",
+  };
+  return mapping[type] || "service";
+}
+
+// Helper to safely parse Voice Profile JSON
+function parseVoiceProfile(json: string | undefined): Brand["voiceProfile"] {
+  if (!json) {
+    return {
+      tone: ["clear", "confident", "human-first"],
+      personality: "",
+      vocabulary: { preferred: [], avoid: [] },
+      sentenceStyle: "",
+      formattingPreferences: {
+        useHeaders: true,
+        useBullets: "sparingly",
+        paragraphLength: "medium",
+        ctaStyle: "soft and value-focused",
+      },
+      examplePhrases: [],
+    };
+  }
+  try {
+    return JSON.parse(json);
+  } catch {
+    return {
+      tone: ["clear", "confident", "human-first"],
+      personality: "",
+      vocabulary: { preferred: [], avoid: [] },
+      sentenceStyle: "",
+      formattingPreferences: {
+        useHeaders: true,
+        useBullets: "sparingly",
+        paragraphLength: "medium",
+        ctaStyle: "soft and value-focused",
+      },
+      examplePhrases: [],
+    };
+  }
+}
+
+// Helper to parse Content Themes (newline or comma separated)
+function parseContentThemes(themes: string | undefined): string[] {
+  if (!themes) return [];
+  return themes.split(/[\n,]/).map((t) => t.trim()).filter(Boolean);
+}
+
+// Helper to parse Cross-Brand CTAs JSON
+function parseCrossBrandCTAs(json: string | undefined): Record<string, string> {
+  if (!json) return {};
+  try {
+    return JSON.parse(json);
+  } catch {
+    return {};
+  }
 }
 
 export async function getBrand(id: string): Promise<Brand | null> {
@@ -69,16 +132,16 @@ export async function getBrand(id: string): Promise<Brand | null> {
       id: record.id,
       name: record.get("Brand Name") as string,
       shortName: record.get("Short Name") as string,
-      brandType: record.get("Brand Type") as Brand["brandType"],
-      websiteUrl: record.get("Website URL") as string | undefined,
+      brandType: mapBrandType(record.get("Brand Type") as string),
+      websiteUrl: record.get("Website") as string | undefined,
       linkedInPageUrl: record.get("LinkedIn Page URL") as string | undefined,
       linkedInPageId: record.get("LinkedIn Page ID") as string | undefined,
       primaryColor: record.get("Primary Color") as string,
       voiceSummary: record.get("Voice Summary") as string,
-      voiceProfile: JSON.parse((record.get("Voice Profile JSON") as string) || "{}"),
+      voiceProfile: parseVoiceProfile(record.get("Voice Profile JSON") as string),
       targetAudience: record.get("Target Audience") as string,
-      contentThemes: (record.get("Content Themes") as string)?.split("\n") || [],
-      crossBrandCTAs: JSON.parse((record.get("Cross-Brand CTAs") as string) || "{}"),
+      contentThemes: parseContentThemes(record.get("Content Themes") as string),
+      crossBrandCTAs: parseCrossBrandCTAs(record.get("Cross-Brand CTAs") as string),
       logoUrl: record.get("Logo URL") as string | undefined,
       isActive: record.get("Is Active") as boolean,
     };
