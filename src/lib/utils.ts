@@ -144,6 +144,65 @@ export const linkedInStatusToAirtable: Record<LinkedInPostStatus, string> = {
   posted: "Posted",
 };
 
+// Topic source values for Airtable
+export const topicSourceToAirtable: Record<string, string> = {
+  ai_suggested: "AI Suggested",
+  manual: "Manual",
+  news: "News",
+  reference_material: "Reference Material",
+};
+
+// Topic priority values for Airtable
+export const topicPriorityToAirtable: Record<string, string> = {
+  high: "High",
+  medium: "Medium",
+  low: "Low",
+};
+
+// Topic timeliness values for Airtable
+export const topicTimelinessToAirtable: Record<string, string> = {
+  evergreen: "Evergreen",
+  timely: "Timely (use soon)",
+  dated: "Dated (expires)",
+};
+
+// Topic status values for Airtable
+export const topicStatusToAirtable: Record<string, string> = {
+  new: "New",
+  approved: "Approved",
+  assigned: "Assigned",
+  used: "Used",
+  rejected: "Rejected",
+};
+
+// Display labels for topic filters
+export const topicSourceLabels: Record<string, string> = {
+  ai_suggested: "AI Suggested",
+  manual: "Manual",
+  news: "News",
+  reference_material: "Reference Material",
+};
+
+export const topicPriorityLabels: Record<string, string> = {
+  high: "High",
+  medium: "Medium",
+  low: "Low",
+};
+
+export const topicTimelinessLabels: Record<string, string> = {
+  evergreen: "Evergreen",
+  timely: "Timely (use soon)",
+  dated: "Dated (expires)",
+};
+
+export const topicStatusLabels: Record<string, string> = {
+  new: "New",
+  approved: "Approved",
+  assigned: "Assigned",
+  used: "Used",
+  rejected: "Rejected",
+};
+
 // Word count targets by content type
 export const wordCountTargets: Record<ContentType, { min: number; max: number }> = {
   feature: { min: 1200, max: 2000 },

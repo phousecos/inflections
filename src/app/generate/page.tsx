@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Sparkles,
   ChevronRight,
@@ -29,6 +30,8 @@ const steps: { key: Step; label: string }[] = [
 ];
 
 export default function GenerateArticle() {
+  const searchParams = useSearchParams();
+  
   const [currentStep, setCurrentStep] = useState<Step>("setup");
   const [isGenerating, setIsGenerating] = useState(false);
 
@@ -37,7 +40,7 @@ export default function GenerateArticle() {
   const [brandsLoading, setBrandsLoading] = useState(true);
   const [brandsError, setBrandsError] = useState<string | null>(null);
 
-  // Form state
+  // Form state - initialize from URL params if present
   const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [contentType, setContentType] = useState<ContentType>("perspective");
   const [pillar, setPillar] = useState<ContentPillar>("tech_leadership");
@@ -62,6 +65,19 @@ export default function GenerateArticle() {
   const [imageStyle, setImageStyle] = useState<"professional" | "abstract" | "editorial">("editorial");
   const [generatedImages, setGeneratedImages] = useState<Array<{ url: string; prompt: string; selected: boolean }>>([]);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+
+  // Initialize from URL params
+  useEffect(() => {
+    const topicParam = searchParams.get("topic");
+    const brandParam = searchParams.get("brand");
+    const pillarParam = searchParams.get("pillar");
+
+    if (topicParam) setTopic(decodeURIComponent(topicParam));
+    if (brandParam) setSelectedBrand(brandParam);
+    if (pillarParam && Object.keys(pillarLabels).includes(pillarParam)) {
+      setPillar(pillarParam as ContentPillar);
+    }
+  }, [searchParams]);
 
   // Fetch brands on mount
   useEffect(() => {

@@ -8,7 +8,7 @@ import type {
   ArticleStatus,
   LinkedInPostStatus,
 } from "@/types";
-import { contentTypeToAirtable, pillarToAirtable, statusToAirtable, linkedInPostTypeToAirtable, linkedInStatusToAirtable } from "./utils";
+import { contentTypeToAirtable, pillarToAirtable, statusToAirtable, linkedInPostTypeToAirtable, linkedInStatusToAirtable, topicSourceToAirtable, topicPriorityToAirtable, topicTimelinessToAirtable, topicStatusToAirtable } from "./utils";
 
 // Initialize Airtable
 const base = new Airtable({
@@ -373,8 +373,84 @@ export async function getIssues(): Promise<Issue[]> {
 
 // ============ TOPICS ============
 
-export async function getTopics(status?: Topic["status"]): Promise<Topic[]> {
-  const filterFormula = status ? `{Status} = "${status}"` : "";
+// Helper to map Airtable values back to internal values
+function mapAirtableToTopicSource(value: string): Topic["source"] {
+  const mapping: Record<string, Topic["source"]> = {
+    "AI Suggested": "ai_suggested",
+    "Manual": "manual",
+    "News": "news",
+    "Reference Material": "reference_material",
+  };
+  return mapping[value] || "manual";
+}
+
+function mapAirtableToPillar(value: string): Topic["pillar"] | undefined {
+  const mapping: Record<string, Topic["pillar"]> = {
+    "Tech Leadership": "tech_leadership",
+    "Delivery Excellence": "delivery_excellence",
+    "Workforce Transformation": "workforce_transformation",
+    "Emerging Talent": "emerging_talent",
+    "Human Side": "human_side",
+  };
+  return mapping[value];
+}
+
+function mapAirtableToTopicPriority(value: string): Topic["priority"] {
+  const mapping: Record<string, Topic["priority"]> = {
+    "High": "high",
+    "Medium": "medium",
+    "Low": "low",
+  };
+  return mapping[value] || "medium";
+}
+
+function mapAirtableToTopicTimeliness(value: string): Topic["timeliness"] {
+  const mapping: Record<string, Topic["timeliness"]> = {
+    "Evergreen": "evergreen",
+    "Timely (use soon)": "timely",
+    "Dated (expires)": "dated",
+  };
+  return mapping[value] || "evergreen";
+}
+
+function mapAirtableToTopicStatus(value: string): Topic["status"] {
+  const mapping: Record<string, Topic["status"]> = {
+    "New": "new",
+    "Approved": "approved",
+    "Assigned": "assigned",
+    "Used": "used",
+    "Rejected": "rejected",
+  };
+  return mapping[value] || "new";
+}
+
+export async function getTopics(filters?: {
+  status?: Topic["status"];
+  priority?: Topic["priority"];
+  brandId?: string;
+  pillar?: Topic["pillar"];
+}): Promise<Topic[]> {
+  const conditions: string[] = [];
+
+  if (filters?.status) {
+    conditions.push(`{Status} = "${topicStatusToAirtable[filters.status]}"`);
+  }
+  if (filters?.priority) {
+    conditions.push(`{Priority} = "${topicPriorityToAirtable[filters.priority]}"`);
+  }
+  if (filters?.brandId) {
+    conditions.push(`FIND("${filters.brandId}", ARRAYJOIN({Primary Brand Fit}))`);
+  }
+  if (filters?.pillar) {
+    conditions.push(`{Pillar} = "${pillarToAirtable[filters.pillar]}"`);
+  }
+
+  let filterFormula = "";
+  if (conditions.length > 0) {
+    filterFormula = conditions.length === 1 
+      ? conditions[0] 
+      : `AND(${conditions.join(", ")})`;
+  }
 
   const records = await base(TABLES.TOPICS)
     .select({
@@ -387,15 +463,15 @@ export async function getTopics(status?: Topic["status"]): Promise<Topic[]> {
     id: record.id,
     topic: record.get("Topic") as string,
     description: record.get("Description") as string | undefined,
-    source: record.get("Source") as Topic["source"],
+    source: mapAirtableToTopicSource(record.get("Source") as string),
     sourceUrl: record.get("Source URL") as string | undefined,
     primaryBrandId: (record.get("Primary Brand Fit") as string[])?.[0],
     secondaryBrandIds: (record.get("Secondary Brand Fit") as string[]) || [],
-    pillar: record.get("Pillar") as Topic["pillar"] | undefined,
-    priority: record.get("Priority") as Topic["priority"],
-    timeliness: record.get("Timeliness") as Topic["timeliness"],
-    status: record.get("Status") as Topic["status"],
-    assignedIssueId: (record.get("Assigned to Issue") as string[])?.[0],
+    pillar: mapAirtableToPillar(record.get("Pillar") as string),
+    priority: mapAirtableToTopicPriority(record.get("Priority") as string),
+    timeliness: mapAirtableToTopicTimeliness(record.get("Timeliness") as string),
+    status: mapAirtableToTopicStatus(record.get("Status") as string),
+    assignedIssueId: (record.get("Assigned Issue") as string[])?.[0],
     notes: record.get("Notes") as string | undefined,
     createdAt: record.get("Created") as string,
   }));
@@ -404,19 +480,52 @@ export async function getTopics(status?: Topic["status"]): Promise<Topic[]> {
 export async function createTopic(
   topic: Omit<Topic, "id" | "createdAt">
 ): Promise<string> {
-  const record = await base(TABLES.TOPICS).create({
+  const fields: Airtable.FieldSet = {
     "Topic": topic.topic,
-    "Description": topic.description,
-    "Source": topic.source,
-    "Source URL": topic.sourceUrl,
-    "Primary Brand Fit": topic.primaryBrandId ? [topic.primaryBrandId] : undefined,
-    "Secondary Brand Fit": topic.secondaryBrandIds,
-    "Pillar": topic.pillar,
-    "Priority": topic.priority,
-    "Timeliness": topic.timeliness,
-    "Status": topic.status,
-    "Notes": topic.notes,
-  });
+    "Source": topicSourceToAirtable[topic.source],
+    "Priority": topicPriorityToAirtable[topic.priority],
+    "Timeliness": topicTimelinessToAirtable[topic.timeliness],
+    "Status": topicStatusToAirtable[topic.status],
+  };
+
+  // Only add optional fields if they have values
+  if (topic.description) fields["Description"] = topic.description;
+  if (topic.sourceUrl) fields["Source URL"] = topic.sourceUrl;
+  if (topic.primaryBrandId) fields["Primary Brand Fit"] = [topic.primaryBrandId];
+  if (topic.secondaryBrandIds && topic.secondaryBrandIds.length > 0) {
+    fields["Secondary Brand Fit"] = topic.secondaryBrandIds;
+  }
+  if (topic.pillar) fields["Pillar"] = pillarToAirtable[topic.pillar];
+  if (topic.assignedIssueId) fields["Assigned Issue"] = [topic.assignedIssueId];
+  if (topic.notes) fields["Notes"] = topic.notes;
+
+  const record = await base(TABLES.TOPICS).create(fields);
 
   return record.id;
+}
+
+export async function updateTopic(
+  id: string,
+  updates: Partial<Omit<Topic, "id" | "createdAt">>
+): Promise<void> {
+  const fields: Airtable.FieldSet = {};
+
+  if (updates.topic) fields["Topic"] = updates.topic;
+  if (updates.description !== undefined) fields["Description"] = updates.description;
+  if (updates.source) fields["Source"] = topicSourceToAirtable[updates.source];
+  if (updates.sourceUrl !== undefined) fields["Source URL"] = updates.sourceUrl;
+  if (updates.primaryBrandId) fields["Primary Brand Fit"] = [updates.primaryBrandId];
+  if (updates.secondaryBrandIds) fields["Secondary Brand Fit"] = updates.secondaryBrandIds;
+  if (updates.pillar) fields["Pillar"] = pillarToAirtable[updates.pillar];
+  if (updates.priority) fields["Priority"] = topicPriorityToAirtable[updates.priority];
+  if (updates.timeliness) fields["Timeliness"] = topicTimelinessToAirtable[updates.timeliness];
+  if (updates.status) fields["Status"] = topicStatusToAirtable[updates.status];
+  if (updates.assignedIssueId) fields["Assigned Issue"] = [updates.assignedIssueId];
+  if (updates.notes !== undefined) fields["Notes"] = updates.notes;
+
+  await base(TABLES.TOPICS).update(id, fields);
+}
+
+export async function deleteTopic(id: string): Promise<void> {
+  await base(TABLES.TOPICS).destroy(id);
 }
