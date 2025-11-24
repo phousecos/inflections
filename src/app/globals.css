@@ -1,0 +1,190 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-brand-blue: #0020C2;
+    --color-brand-orange: #FFA300;
+    --color-brand-jet: #2D2D2D;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply font-sans text-studio-text-primary bg-studio-bg;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display font-semibold tracking-tight;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-studio-border rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-studio-text-muted;
+  }
+}
+
+@layer components {
+  /* Card component */
+  .card {
+    @apply bg-studio-card rounded-lg border border-studio-border shadow-soft;
+  }
+
+  .card-elevated {
+    @apply bg-studio-card rounded-lg border border-studio-border shadow-card;
+  }
+
+  /* Button variants */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-150;
+  }
+
+  .btn-primary {
+    @apply btn bg-brand-blue text-white hover:bg-opacity-90 active:scale-[0.98];
+  }
+
+  .btn-secondary {
+    @apply btn bg-studio-card text-studio-text-primary border border-studio-border hover:bg-studio-bg active:scale-[0.98];
+  }
+
+  .btn-ghost {
+    @apply btn text-studio-text-secondary hover:bg-studio-bg hover:text-studio-text-primary;
+  }
+
+  .btn-danger {
+    @apply btn bg-red-500 text-white hover:bg-red-600 active:scale-[0.98];
+  }
+
+  /* Status badges */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+
+  /* Form inputs */
+  .input {
+    @apply w-full px-3 py-2 bg-studio-card border border-studio-border rounded-lg text-studio-text-primary placeholder:text-studio-text-muted focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue transition-all duration-150;
+  }
+
+  .textarea {
+    @apply input resize-none;
+  }
+
+  .select {
+    @apply input appearance-none cursor-pointer;
+  }
+
+  .label {
+    @apply block text-sm font-medium text-studio-text-secondary mb-1.5;
+  }
+
+  /* Editor prose styles */
+  .prose-editor {
+    @apply text-studio-text-primary;
+  }
+
+  .prose-editor h2 {
+    @apply text-xl font-display font-semibold mt-8 mb-4 text-studio-text-primary;
+  }
+
+  .prose-editor h3 {
+    @apply text-lg font-display font-semibold mt-6 mb-3 text-studio-text-primary;
+  }
+
+  .prose-editor p {
+    @apply mb-4 leading-relaxed;
+  }
+
+  .prose-editor ul, .prose-editor ol {
+    @apply mb-4 pl-6;
+  }
+
+  .prose-editor li {
+    @apply mb-2;
+  }
+
+  .prose-editor ul li {
+    @apply list-disc;
+  }
+
+  .prose-editor ol li {
+    @apply list-decimal;
+  }
+
+  .prose-editor blockquote {
+    @apply border-l-4 border-brand-blue pl-4 italic text-studio-text-secondary my-4;
+  }
+
+  .prose-editor code {
+    @apply font-mono text-sm bg-studio-bg px-1.5 py-0.5 rounded;
+  }
+
+  .prose-editor pre {
+    @apply bg-studio-bg p-4 rounded-lg overflow-x-auto my-4;
+  }
+
+  .prose-editor pre code {
+    @apply bg-transparent p-0;
+  }
+
+  .prose-editor a {
+    @apply text-brand-blue underline underline-offset-2 hover:text-opacity-80;
+  }
+
+  .prose-editor strong {
+    @apply font-semibold;
+  }
+
+  /* Sidebar navigation */
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-studio-text-secondary hover:bg-studio-bg hover:text-studio-text-primary transition-colors duration-150;
+  }
+
+  .nav-item-active {
+    @apply nav-item bg-studio-accent-blueSoft text-brand-blue;
+  }
+}
+
+@layer utilities {
+  /* Animation delays for staggered effects */
+  .animation-delay-100 {
+    animation-delay: 100ms;
+  }
+  .animation-delay-200 {
+    animation-delay: 200ms;
+  }
+  .animation-delay-300 {
+    animation-delay: 300ms;
+  }
+  .animation-delay-400 {
+    animation-delay: 400ms;
+  }
+
+  /* Gradient text */
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-brand-blue to-brand-orange;
+  }
+
+  /* Focus ring */
+  .focus-ring {
+    @apply focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:ring-offset-2;
+  }
+}
