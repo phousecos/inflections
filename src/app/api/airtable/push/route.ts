@@ -12,16 +12,33 @@ export async function POST(request: NextRequest) {
     const body: PushRequest = await request.json();
 
     // Create article in Airtable
-    const articleId = await createArticle(body.article);
+    let articleId: string;
+    try {
+      articleId = await createArticle(body.article);
+    } catch (articleError) {
+      console.error("Article creation error:", articleError);
+      return NextResponse.json(
+        { 
+          error: "Failed to create article", 
+          details: articleError instanceof Error ? articleError.message : String(articleError)
+        },
+        { status: 500 }
+      );
+    }
 
     // Create LinkedIn posts linked to article
     const linkedInPostIds: string[] = [];
     for (const post of body.linkedInPosts) {
-      const postId = await createLinkedInPost({
-        ...post,
-        sourceArticleId: articleId,
-      });
-      linkedInPostIds.push(postId);
+      try {
+        const postId = await createLinkedInPost({
+          ...post,
+          sourceArticleId: articleId,
+        });
+        linkedInPostIds.push(postId);
+      } catch (postError) {
+        console.error("LinkedIn post creation error:", postError);
+        // Continue with other posts, but log the error
+      }
     }
 
     return NextResponse.json({
@@ -32,7 +49,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Airtable push error:", error);
     return NextResponse.json(
-      { error: "Failed to push content to Airtable" },
+      { 
+        error: "Failed to push content to Airtable",
+        details: error instanceof Error ? error.message : String(error)
+      },
       { status: 500 }
     );
   }

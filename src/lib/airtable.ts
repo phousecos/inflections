@@ -189,7 +189,7 @@ export async function getArticles(filters?: {
     issueId: (record.get("Issue") as string[])?.[0],
     contentType: record.get("Content Type") as Article["contentType"],
     primaryBrandId: (record.get("Primary Brand") as string[])?.[0],
-    secondaryBrandIds: (record.get("Secondary Brands") as string[]) || [],
+    secondaryBrandIds: (record.get("Secondary Brand") as string[]) || [],
     pillar: record.get("Pillar") as Article["pillar"],
     status: record.get("Status") as ArticleStatus,
     author: record.get("Author") as string | undefined,
@@ -208,22 +208,29 @@ export async function getArticles(filters?: {
 }
 
 export async function createArticle(article: Omit<Article, "id" | "createdAt" | "updatedAt">): Promise<string> {
-  const record = await base(TABLES.ARTICLES).create({
+  const fields: Airtable.FieldSet = {
     "Title": article.title,
-    "Issue": article.issueId ? [article.issueId] : undefined,
     "Content Type": article.contentType,
     "Primary Brand": [article.primaryBrandId],
-    "Secondary Brands": article.secondaryBrandIds,
     "Pillar": article.pillar,
     "Status": article.status,
     "Content": article.content,
-    "Excerpt": article.excerpt,
-    "Meta Description": article.metaDescription,
-    "Target Word Count": article.targetWordCount,
-    "Featured Image URL": article.featuredImageUrl,
-    "Featured Image Prompt": article.featuredImagePrompt,
-    "Publish Date": article.publishDate,
-  });
+  };
+
+  // Only add optional fields if they have values
+  if (article.issueId) fields["Issue"] = [article.issueId];
+  if (article.secondaryBrandIds && article.secondaryBrandIds.length > 0) {
+    // Field only allows one selection, so take the first one
+    fields["Secondary Brand"] = [article.secondaryBrandIds[0]];
+  }
+  if (article.excerpt) fields["Excerpt"] = article.excerpt;
+  if (article.metaDescription) fields["Meta Description"] = article.metaDescription;
+  if (article.targetWordCount) fields["Target Word Count"] = article.targetWordCount;
+  if (article.featuredImageUrl) fields["Featured Image URL"] = article.featuredImageUrl;
+  if (article.featuredImagePrompt) fields["Featured Image Prompt"] = article.featuredImagePrompt;
+  if (article.publishDate) fields["Publish Date"] = article.publishDate;
+
+  const record = await base(TABLES.ARTICLES).create(fields);
 
   return record.id;
 }
@@ -238,7 +245,9 @@ export async function updateArticle(
   if (updates.issueId) fields["Issue"] = [updates.issueId];
   if (updates.contentType) fields["Content Type"] = updates.contentType;
   if (updates.primaryBrandId) fields["Primary Brand"] = [updates.primaryBrandId];
-  if (updates.secondaryBrandIds) fields["Secondary Brands"] = updates.secondaryBrandIds;
+  if (updates.secondaryBrandIds && updates.secondaryBrandIds.length > 0) {
+    fields["Secondary Brand"] = [updates.secondaryBrandIds[0]];
+  }
   if (updates.pillar) fields["Pillar"] = updates.pillar;
   if (updates.status) fields["Status"] = updates.status;
   if (updates.content) fields["Content"] = updates.content;

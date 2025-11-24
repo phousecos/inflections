@@ -57,6 +57,12 @@ export default function GenerateArticle() {
     Array<{ type: string; content: string; hashtags: string[]; selected: boolean }>
   >([]);
 
+  // Image generation state
+  const [imagePrompt, setImagePrompt] = useState("");
+  const [imageStyle, setImageStyle] = useState<"professional" | "abstract" | "editorial">("editorial");
+  const [generatedImages, setGeneratedImages] = useState<Array<{ url: string; prompt: string; selected: boolean }>>([]);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+
   // Fetch brands on mount
   useEffect(() => {
     async function fetchBrands() {
@@ -156,8 +162,88 @@ export default function GenerateArticle() {
     }
   };
 
-  const handleGenerateImage = () => {
+  const handleGenerateImage = async () => {
     setCurrentStep("image");
+    
+    // Auto-generate a prompt based on the article if none exists
+    if (!imagePrompt) {
+      const autoPrompt = `Visual concept for article titled "${generatedTitle}". Professional business imagery representing ${pillarLabels[pillar].toLowerCase()}.`;
+      setImagePrompt(autoPrompt);
+    }
+  };
+
+  const handleGenerateImageFromPrompt = async () => {
+    setIsGeneratingImage(true);
+
+    try {
+      const response = await fetch("/api/generate/image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: imagePrompt,
+          articleTitle: generatedTitle,
+          brandName: selectedBrandData?.name || "",
+          style: imageStyle,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.details || "Failed to generate image");
+      }
+
+      const data = await response.json();
+
+      if (data.imageUrl) {
+        setGeneratedImages(prev => [...prev, { 
+          url: data.imageUrl, 
+          prompt: data.prompt,
+          selected: prev.length === 0 // Auto-select first image
+        }]);
+      } else if (data.status === "processing") {
+        // Poll for result
+        pollForImage(data.predictionId);
+      }
+    } catch (error) {
+      console.error("Image generation error:", error);
+      alert(`Failed to generate image: ${error instanceof Error ? error.message : "Unknown error"}`);
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
+  const pollForImage = async (predictionId: string) => {
+    const maxAttempts = 30; // 30 seconds max
+    let attempts = 0;
+
+    const poll = async () => {
+      attempts++;
+      try {
+        const response = await fetch(`/api/generate/image?id=${predictionId}`);
+        const data = await response.json();
+
+        if (data.status === "succeeded" && data.imageUrl) {
+          setGeneratedImages(prev => [...prev, { 
+            url: data.imageUrl, 
+            prompt: imagePrompt,
+            selected: prev.length === 0
+          }]);
+          setIsGeneratingImage(false);
+        } else if (data.status === "failed") {
+          alert("Image generation failed: " + (data.error || "Unknown error"));
+          setIsGeneratingImage(false);
+        } else if (attempts < maxAttempts) {
+          setTimeout(poll, 1000);
+        } else {
+          alert("Image generation timed out");
+          setIsGeneratingImage(false);
+        }
+      } catch {
+        setIsGeneratingImage(false);
+      }
+    };
+
+    poll();
   };
 
   const handlePush = async () => {
@@ -179,6 +265,8 @@ export default function GenerateArticle() {
             excerpt: generatedExcerpt,
             metaDescription: generatedMeta,
             targetWordCount: wordCountTargets[contentType].max,
+            featuredImageUrl: generatedImages.find(img => img.selected)?.url,
+            featuredImagePrompt: generatedImages.find(img => img.selected)?.prompt,
           },
           linkedInPosts: linkedInPosts
             .filter((p) => p.selected)
@@ -194,13 +282,14 @@ export default function GenerateArticle() {
       });
 
       if (!response.ok) {
-        throw new Error("Failed to push to Airtable");
+        const errorData = await response.json();
+        throw new Error(errorData.details || "Failed to push to Airtable");
       }
 
       setCurrentStep("push");
     } catch (error) {
       console.error("Push error:", error);
-      alert("Failed to push to Airtable. Please try again.");
+      alert(`Failed to push to Airtable: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsGenerating(false);
     }
@@ -602,31 +691,95 @@ export default function GenerateArticle() {
                 Featured Image
               </h2>
               <p className="text-sm text-studio-text-secondary">
-                Generate or upload a featured image for this article (optional)
+                Generate a featured image for this article (optional - you can skip this step)
               </p>
             </div>
 
-            <div className="p-6">
-              <div className="grid grid-cols-3 gap-4 mb-6">
-                {[1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="aspect-video rounded-lg bg-studio-bg border-2 border-dashed border-studio-border flex items-center justify-center cursor-pointer hover:border-brand-blue/50 transition-colors"
-                  >
-                    <div className="text-center">
-                      <Image className="w-8 h-8 text-studio-text-muted mx-auto mb-2" />
-                      <span className="text-sm text-studio-text-muted">
-                        Option {i}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="label">Image Prompt</label>
+                <textarea
+                  className="textarea"
+                  rows={3}
+                  placeholder="Describe the image you want to generate..."
+                  value={imagePrompt}
+                  onChange={(e) => setImagePrompt(e.target.value)}
+                />
               </div>
 
-              <button className="btn-secondary w-full">
-                <Sparkles className="w-4 h-4" />
-                Generate Image Options (Coming Soon)
+              <div>
+                <label className="label">Style</label>
+                <div className="flex gap-2">
+                  {(["editorial", "professional", "abstract"] as const).map((style) => (
+                    <button
+                      key={style}
+                      onClick={() => setImageStyle(style)}
+                      className={cn(
+                        "px-4 py-2 rounded-lg border text-sm font-medium capitalize transition-all",
+                        imageStyle === style
+                          ? "border-brand-blue bg-studio-accent-blueSoft text-brand-blue"
+                          : "border-studio-border hover:border-brand-blue/50"
+                      )}
+                    >
+                      {style}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button 
+                onClick={handleGenerateImageFromPrompt}
+                disabled={!imagePrompt || isGeneratingImage}
+                className="btn-secondary w-full disabled:opacity-50"
+              >
+                {isGeneratingImage ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4" />
+                    Generate Image
+                  </>
+                )}
               </button>
+
+              {generatedImages.length > 0 && (
+                <div className="mt-6">
+                  <label className="label">Generated Images</label>
+                  <div className="grid grid-cols-2 gap-4">
+                    {generatedImages.map((img, index) => (
+                      <div
+                        key={index}
+                        onClick={() => {
+                          setGeneratedImages(prev => prev.map((i, idx) => ({
+                            ...i,
+                            selected: idx === index
+                          })));
+                        }}
+                        className={cn(
+                          "relative aspect-video rounded-lg overflow-hidden cursor-pointer border-2 transition-all",
+                          img.selected
+                            ? "border-brand-blue ring-2 ring-brand-blue/20"
+                            : "border-studio-border hover:border-brand-blue/50"
+                        )}
+                      >
+                        <img 
+                          src={img.url} 
+                          alt={`Generated option ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                        {img.selected && (
+                          <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-brand-blue flex items-center justify-center">
+                            <Check className="w-4 h-4 text-white" />
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="p-6 flex justify-between">
@@ -648,6 +801,8 @@ export default function GenerateArticle() {
                   <>
                     Push to Airtable
                     <Send className="w-4 h-4" />
+                  </>
+                )}
                   </>
                 )}
               </button>
@@ -701,6 +856,8 @@ export default function GenerateArticle() {
                   setGeneratedMeta("");
                   setGeneratedTags([]);
                   setLinkedInPosts([]);
+                  setImagePrompt("");
+                  setGeneratedImages([]);
                 }}
                 className="btn-primary"
               >
