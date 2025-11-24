@@ -8,6 +8,7 @@ import type {
   ArticleStatus,
   LinkedInPostStatus,
 } from "@/types";
+import { contentTypeToAirtable, pillarToAirtable, statusToAirtable } from "./utils";
 
 // Initialize Airtable
 const base = new Airtable({
@@ -210,10 +211,10 @@ export async function getArticles(filters?: {
 export async function createArticle(article: Omit<Article, "id" | "createdAt" | "updatedAt">): Promise<string> {
   const fields: Airtable.FieldSet = {
     "Title": article.title,
-    "Content Type": article.contentType,
+    "Content Type": contentTypeToAirtable[article.contentType],
     "Primary Brand": [article.primaryBrandId],
-    "Pillar": article.pillar,
-    "Status": article.status,
+    "Pillar": pillarToAirtable[article.pillar],
+    "Status": statusToAirtable[article.status],
     "Content": article.content,
   };
 

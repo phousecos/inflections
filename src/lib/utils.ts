@@ -67,13 +67,32 @@ export const contentTypeLabels: Record<ContentType, string> = {
   resource_roundup: "Resource Roundup",
 };
 
+// Content type values for Airtable (exact match to dropdown options)
+export const contentTypeToAirtable: Record<ContentType, string> = {
+  feature: "Feature",
+  perspective: "Perspective",
+  practitioner_guide: "Practitioner Guide",
+  spotlight: "Spotlight",
+  the_crossroads: "The Crossroads",
+  resource_roundup: "Resource Roundup",
+};
+
 // Content pillar display labels
 export const pillarLabels: Record<ContentPillar, string> = {
-  tech_leadership: "Technology Leadership",
+  tech_leadership: "Tech Leadership",
   delivery_excellence: "Delivery Excellence",
   workforce_transformation: "Workforce Transformation",
   emerging_talent: "Emerging Talent",
-  human_side: "The Human Side",
+  human_side: "Human Side",
+};
+
+// Content pillar values for Airtable (exact match to dropdown options)
+export const pillarToAirtable: Record<ContentPillar, string> = {
+  tech_leadership: "Tech Leadership",
+  delivery_excellence: "Delivery Excellence",
+  workforce_transformation: "Workforce Transformation",
+  emerging_talent: "Emerging Talent",
+  human_side: "Human Side",
 };
 
 // Article status display labels and colors
@@ -87,6 +106,16 @@ export const articleStatusConfig: Record<
   approved: { label: "Approved", color: "text-green-600", bgColor: "bg-green-50" },
   scheduled: { label: "Scheduled", color: "text-purple-600", bgColor: "bg-purple-50" },
   published: { label: "Published", color: "text-emerald-600", bgColor: "bg-emerald-50" },
+};
+
+// Article status values for Airtable (exact match to dropdown options)
+export const statusToAirtable: Record<ArticleStatus, string> = {
+  idea: "Idea",
+  drafting: "Drafting",
+  in_review: "In Review",
+  approved: "Approved",
+  scheduled: "Scheduled",
+  published: "Published",
 };
 
 // LinkedIn post type labels
