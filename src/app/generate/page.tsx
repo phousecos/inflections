@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Sparkles,
   ChevronRight,
@@ -17,18 +17,6 @@ import { cn } from "@/lib/utils";
 import type { ContentType, ContentPillar, Brand } from "@/types";
 import { contentTypeLabels, pillarLabels, wordCountTargets } from "@/lib/utils";
 
-// Mock brands for UI - will be fetched from Airtable
-const mockBrands: Brand[] = [
-  { id: "1", name: "Unlimited Powerhouse", shortName: "UPH", primaryColor: "#0020C2" } as Brand,
-  { id: "2", name: "Jerri Bland", shortName: "JB", primaryColor: "#FFA300" } as Brand,
-  { id: "3", name: "AgentPMO", shortName: "APMO", primaryColor: "#10B981" } as Brand,
-  { id: "4", name: "Vetters Group", shortName: "VG", primaryColor: "#6366F1" } as Brand,
-  { id: "5", name: "Lumynr", shortName: "LUM", primaryColor: "#F22080" } as Brand,
-  { id: "6", name: "Prept", shortName: "PRP", primaryColor: "#8B5CF6" } as Brand,
-  { id: "7", name: "GenAIrate Project", shortName: "GAP", primaryColor: "#F59E0B" } as Brand,
-  { id: "8", name: "ISSA", shortName: "ISSA", primaryColor: "#14B8A6" } as Brand,
-];
-
 type Step = "setup" | "generating" | "editing" | "linkedin" | "image" | "push";
 
 const steps: { key: Step; label: string }[] = [
@@ -44,6 +32,11 @@ export default function GenerateArticle() {
   const [currentStep, setCurrentStep] = useState<Step>("setup");
   const [isGenerating, setIsGenerating] = useState(false);
 
+  // Brands from Airtable
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [brandsLoading, setBrandsLoading] = useState(true);
+  const [brandsError, setBrandsError] = useState<string | null>(null);
+
   // Form state
   const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [contentType, setContentType] = useState<ContentType>("perspective");
@@ -57,148 +50,160 @@ export default function GenerateArticle() {
   const [generatedContent, setGeneratedContent] = useState("");
   const [generatedExcerpt, setGeneratedExcerpt] = useState("");
   const [generatedMeta, setGeneratedMeta] = useState("");
+  const [generatedTags, setGeneratedTags] = useState<string[]>([]);
 
   // LinkedIn posts state
   const [linkedInPosts, setLinkedInPosts] = useState<
-    Array<{ type: string; content: string; selected: boolean }>
+    Array<{ type: string; content: string; hashtags: string[]; selected: boolean }>
   >([]);
 
+  // Fetch brands on mount
+  useEffect(() => {
+    async function fetchBrands() {
+      try {
+        const response = await fetch("/api/airtable/brands");
+        if (!response.ok) {
+          throw new Error("Failed to fetch brands");
+        }
+        const data = await response.json();
+        setBrands(data);
+      } catch (error) {
+        setBrandsError(error instanceof Error ? error.message : "Failed to load brands");
+      } finally {
+        setBrandsLoading(false);
+      }
+    }
+    fetchBrands();
+  }, []);
+
   const currentStepIndex = steps.findIndex((s) => s.key === currentStep);
+  const selectedBrandData = brands.find((b) => b.id === selectedBrand);
 
   const handleGenerate = async () => {
     setIsGenerating(true);
     setCurrentStep("generating");
 
-    // Simulate API call - replace with actual API call
-    await new Promise((resolve) => setTimeout(resolve, 3000));
+    try {
+      const response = await fetch("/api/generate/article", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brandId: selectedBrand,
+          pillar,
+          contentType,
+          topic,
+          angle: angle || undefined,
+          referenceUrl: referenceUrl || undefined,
+        }),
+      });
 
-    // Mock generated content
-    setGeneratedTitle("Why Your Disaster Recovery Plan Isn't Ready for 2026");
-    setGeneratedContent(`## The Wake-Up Call We All Needed
+      if (!response.ok) {
+        throw new Error("Failed to generate article");
+      }
 
-The recent Amazon Web Services outage wasn't just an inconvenience—it was a preview of what happens when organizations treat disaster recovery as a checkbox exercise rather than a living, breathing part of their operations.
-
-I've spent twenty years watching organizations scramble after incidents like this. The pattern is always the same: initial panic, followed by promises to "do better," followed by... nothing. Until the next outage.
-
-## What Most DR Plans Get Wrong
-
-Here's the uncomfortable truth: most disaster recovery plans are written once and forgotten. They sit in a SharePoint folder somewhere, gathering digital dust while the infrastructure they're meant to protect evolves beyond recognition.
-
-The AWS outage exposed three critical gaps I see repeatedly:
-
-**1. Testing Theater**
-Annual DR tests that follow a script aren't tests—they're performances. Real disasters don't send calendar invites.
-
-**2. Single Points of Failure**
-Multi-cloud strategies sound great in vendor presentations. In practice, most organizations have deep dependencies they haven't mapped.
-
-**3. Recovery Time Fantasies**
-That four-hour RTO in your plan? When was the last time you actually tried to hit it under realistic conditions?
-
-## What Actually Works
-
-The organizations that weathered the AWS outage well shared common traits. They tested quarterly, not annually. They ran chaos engineering exercises that surprised their teams. They had clear, documented runbooks that didn't assume perfect conditions.
-
-Most importantly, they treated disaster recovery as an ongoing practice, not a project with an end date.
-
-## Your Next Steps
-
-Before you close this article and move on to the next fire, ask yourself three questions:
-
-1. When did we last test our DR plan without warning the team?
-2. Can our newest team members execute the recovery procedures?
-3. What single failure would hurt us most right now?
-
-The answers might be uncomfortable. That's the point.`);
-    setGeneratedExcerpt(
-      "The recent AWS outage exposed critical gaps in how organizations approach disaster recovery. Here's what most DR plans get wrong—and what actually works."
-    );
-    setGeneratedMeta(
-      "Learn why most disaster recovery plans fail and the three critical gaps the AWS outage exposed. Practical steps for IT leaders."
-    );
-
-    setIsGenerating(false);
-    setCurrentStep("editing");
+      const data = await response.json();
+      
+      setGeneratedTitle(data.title);
+      setGeneratedContent(data.content);
+      setGeneratedExcerpt(data.excerpt);
+      setGeneratedMeta(data.metaDescription);
+      setGeneratedTags(data.suggestedTags || []);
+      
+      setCurrentStep("editing");
+    } catch (error) {
+      console.error("Generation error:", error);
+      alert("Failed to generate article. Please try again.");
+      setCurrentStep("setup");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleGenerateLinkedIn = async () => {
-    setCurrentStep("linkedin");
+    setIsGenerating(true);
 
-    // Mock LinkedIn posts
-    setLinkedInPosts([
-      {
-        type: "hot_take",
-        content: `The AWS outage wasn't a failure of technology.
+    try {
+      const response = await fetch("/api/generate/linkedin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brandId: selectedBrand,
+          articleTitle: generatedTitle,
+          articleContent: generatedContent,
+          postTypes: ["hot_take", "article_share", "quote_graphic"],
+        }),
+      });
 
-It was a failure of imagination.
+      if (!response.ok) {
+        throw new Error("Failed to generate LinkedIn posts");
+      }
 
-Most organizations I work with have disaster recovery "plans" that:
-→ Were written 3+ years ago
-→ Have never been tested under realistic conditions
-→ Assume perfect communication during chaos
-
-That's not a plan. That's a wish.
-
-Here's what the organizations that recovered quickly had in common:
-
-They tested quarterly, not annually.
-They surprised their own teams.
-They treated DR as practice, not paperwork.
-
-When was the last time YOUR team ran a real DR test?
-
-Not a scripted exercise. A real "what if everything breaks right now" test.
-
-If you can't remember, that's your answer.
-
-#DisasterRecovery #ITLeadership #BusinessContinuity`,
-        selected: true,
-      },
-      {
-        type: "article_share",
-        content: `I've watched organizations scramble after outages for 20 years.
-
-The pattern is always the same:
-• Panic
-• Promises to "do better"
-• Nothing changes
-• Repeat
-
-The recent AWS outage was a masterclass in what happens when DR plans become checkbox exercises.
-
-In my latest article, I break down:
-
-✓ The 3 critical gaps most DR plans have
-✓ Why "testing theater" is worse than no testing
-✓ What resilient organizations do differently
-
-Your four-hour RTO means nothing if you've never actually tried to hit it.
-
-Link in comments 👇
-
-#ITStrategy #RiskManagement #Leadership`,
-        selected: true,
-      },
-      {
-        type: "quote_graphic",
-        content: `"Most disaster recovery plans are written once and forgotten. They sit in a SharePoint folder somewhere, gathering digital dust while the infrastructure they're meant to protect evolves beyond recognition."
-
-Real disaster recovery isn't a document.
-
-It's a practice.
-
-#DisasterRecovery #ITLeadership`,
-        selected: false,
-      },
-    ]);
+      const data = await response.json();
+      
+      setLinkedInPosts(
+        data.posts.map((post: { type: string; content: string; hashtags: string[] }) => ({
+          ...post,
+          selected: true,
+        }))
+      );
+      
+      setCurrentStep("linkedin");
+    } catch (error) {
+      console.error("LinkedIn generation error:", error);
+      alert("Failed to generate LinkedIn posts. Please try again.");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleGenerateImage = () => {
     setCurrentStep("image");
   };
 
-  const handlePush = () => {
-    setCurrentStep("push");
+  const handlePush = async () => {
+    setIsGenerating(true);
+
+    try {
+      const response = await fetch("/api/airtable/push", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          article: {
+            title: generatedTitle,
+            contentType,
+            primaryBrandId: selectedBrand,
+            secondaryBrandIds: [],
+            pillar,
+            status: "drafting",
+            content: generatedContent,
+            excerpt: generatedExcerpt,
+            metaDescription: generatedMeta,
+            targetWordCount: wordCountTargets[contentType].max,
+          },
+          linkedInPosts: linkedInPosts
+            .filter((p) => p.selected)
+            .map((p) => ({
+              title: `${p.type} - ${generatedTitle.slice(0, 30)}...`,
+              postType: p.type,
+              brandId: selectedBrand,
+              content: p.content,
+              hashtags: p.hashtags.join(" "),
+              status: "draft",
+            })),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to push to Airtable");
+      }
+
+      setCurrentStep("push");
+    } catch (error) {
+      console.error("Push error:", error);
+      alert("Failed to push to Airtable. Please try again.");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -262,31 +267,54 @@ It's a practice.
           <div className="p-6 space-y-6">
             <div>
               <label className="label">Brand</label>
-              <div className="grid grid-cols-4 gap-2">
-                {mockBrands.map((brand) => (
-                  <button
-                    key={brand.id}
-                    onClick={() => setSelectedBrand(brand.id)}
-                    className={cn(
-                      "p-3 rounded-lg border text-left transition-all",
-                      selectedBrand === brand.id
-                        ? "border-brand-blue bg-studio-accent-blueSoft"
-                        : "border-studio-border hover:border-brand-blue/50"
-                    )}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: brand.primaryColor }}
-                      />
-                      <span className="text-sm font-medium truncate">
-                        {brand.name}
-                      </span>
-                    </div>
-                  </button>
-                ))}
-              </div>
+              {brandsLoading ? (
+                <div className="flex items-center gap-2 text-studio-text-muted py-4">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading brands...
+                </div>
+              ) : brandsError ? (
+                <div className="text-red-500 py-4">{brandsError}</div>
+              ) : (
+                <div className="grid grid-cols-3 gap-2">
+                  {brands.map((brand) => (
+                    <button
+                      key={brand.id}
+                      onClick={() => setSelectedBrand(brand.id)}
+                      className={cn(
+                        "p-3 rounded-lg border text-left transition-all",
+                        selectedBrand === brand.id
+                          ? "border-brand-blue bg-studio-accent-blueSoft"
+                          : "border-studio-border hover:border-brand-blue/50"
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-3 h-3 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: brand.primaryColor || "#666" }}
+                        />
+                        <span className="text-sm font-medium truncate">
+                          {brand.name}
+                        </span>
+                      </div>
+                      {brand.shortName && (
+                        <span className="text-xs text-studio-text-muted ml-5">
+                          {brand.shortName}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
+
+            {selectedBrandData && (
+              <div className="p-4 bg-studio-bg rounded-lg">
+                <p className="text-sm text-studio-text-secondary">
+                  <span className="font-medium text-studio-text-primary">Voice: </span>
+                  {selectedBrandData.voiceSummary || "No voice summary defined"}
+                </p>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -367,10 +395,14 @@ It's a practice.
             <div className="pt-4 border-t border-studio-border flex justify-end">
               <button
                 onClick={handleGenerate}
-                disabled={!selectedBrand || !topic}
+                disabled={!selectedBrand || !topic || isGenerating}
                 className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Sparkles className="w-4 h-4" />
+                {isGenerating ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4" />
+                )}
                 Generate Draft
               </button>
             </div>
@@ -387,7 +419,7 @@ It's a practice.
               Generating your article...
             </h2>
             <p className="text-studio-text-secondary">
-              This usually takes 10-20 seconds
+              This usually takes 15-30 seconds
             </p>
           </div>
         )}
@@ -410,7 +442,7 @@ It's a practice.
                 <label className="label mb-0">Content</label>
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-studio-text-muted">
-                    {generatedContent.split(/\s+/).length} words
+                    {generatedContent.split(/\s+/).filter(Boolean).length} words
                   </span>
                   <button className="btn-ghost text-xs py-1 px-2">
                     <RefreshCw className="w-3 h-3" />
@@ -450,6 +482,19 @@ It's a practice.
               </p>
             </div>
 
+            {generatedTags.length > 0 && (
+              <div className="p-6">
+                <label className="label">Suggested Tags</label>
+                <div className="flex flex-wrap gap-2">
+                  {generatedTags.map((tag, i) => (
+                    <span key={i} className="badge bg-studio-bg text-studio-text-secondary">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="p-6 flex justify-between">
               <button
                 onClick={() => setCurrentStep("setup")}
@@ -458,9 +503,19 @@ It's a practice.
                 <ArrowLeft className="w-4 h-4" />
                 Back to Setup
               </button>
-              <button onClick={handleGenerateLinkedIn} className="btn-primary">
-                Generate LinkedIn Posts
-                <Linkedin className="w-4 h-4" />
+              <button 
+                onClick={handleGenerateLinkedIn} 
+                className="btn-primary"
+                disabled={isGenerating}
+              >
+                {isGenerating ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    Generate LinkedIn Posts
+                    <Linkedin className="w-4 h-4" />
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -513,6 +568,11 @@ It's a practice.
                         </span>
                       )}
                     </p>
+                    {post.hashtags && post.hashtags.length > 0 && (
+                      <p className="text-xs text-studio-text-muted mt-1">
+                        Hashtags: {post.hashtags.join(" ")}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -542,7 +602,7 @@ It's a practice.
                 Featured Image
               </h2>
               <p className="text-sm text-studio-text-secondary">
-                Generate or upload a featured image for this article
+                Generate or upload a featured image for this article (optional)
               </p>
             </div>
 
@@ -565,7 +625,7 @@ It's a practice.
 
               <button className="btn-secondary w-full">
                 <Sparkles className="w-4 h-4" />
-                Generate Image Options
+                Generate Image Options (Coming Soon)
               </button>
             </div>
 
@@ -577,9 +637,19 @@ It's a practice.
                 <ArrowLeft className="w-4 h-4" />
                 Back to LinkedIn
               </button>
-              <button onClick={handlePush} className="btn-primary">
-                Push to Airtable
-                <Send className="w-4 h-4" />
+              <button 
+                onClick={handlePush} 
+                className="btn-primary"
+                disabled={isGenerating}
+              >
+                {isGenerating ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    Push to Airtable
+                    <Send className="w-4 h-4" />
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -621,11 +691,15 @@ It's a practice.
               <button
                 onClick={() => {
                   setCurrentStep("setup");
+                  setSelectedBrand("");
                   setTopic("");
                   setAngle("");
                   setReferenceUrl("");
                   setGeneratedTitle("");
                   setGeneratedContent("");
+                  setGeneratedExcerpt("");
+                  setGeneratedMeta("");
+                  setGeneratedTags([]);
                   setLinkedInPosts([]);
                 }}
                 className="btn-primary"
