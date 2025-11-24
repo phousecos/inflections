@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Sparkles,
@@ -29,7 +29,7 @@ const steps: { key: Step; label: string }[] = [
   { key: "push", label: "Publish" },
 ];
 
-export default function GenerateArticle() {
+function GenerateArticleContent() {
   const searchParams = useSearchParams();
   
   const [currentStep, setCurrentStep] = useState<Step>("setup");
@@ -883,5 +883,17 @@ export default function GenerateArticle() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function GenerateArticle() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-brand-blue" />
+      </div>
+    }>
+      <GenerateArticleContent />
+    </Suspense>
   );
 }
