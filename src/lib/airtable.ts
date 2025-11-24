@@ -169,7 +169,7 @@ export async function updateArticle(
   id: string,
   updates: Partial<Omit<Article, "id" | "createdAt" | "updatedAt">>
 ): Promise<void> {
-  const fields: Record<string, unknown> = {};
+  const fields: Airtable.FieldSet = {};
 
   if (updates.title) fields["Title"] = updates.title;
   if (updates.issueId) fields["Issue"] = [updates.issueId];
