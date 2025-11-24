@@ -8,7 +8,7 @@ import type {
   ArticleStatus,
   LinkedInPostStatus,
 } from "@/types";
-import { contentTypeToAirtable, pillarToAirtable, statusToAirtable } from "./utils";
+import { contentTypeToAirtable, pillarToAirtable, statusToAirtable, linkedInPostTypeToAirtable, linkedInStatusToAirtable } from "./utils";
 
 // Initialize Airtable
 const base = new Airtable({
@@ -315,19 +315,23 @@ export async function getLinkedInPosts(filters?: {
 export async function createLinkedInPost(
   post: Omit<LinkedInPost, "id" | "characterCount">
 ): Promise<string> {
-  const record = await base(TABLES.LINKEDIN_POSTS).create({
+  const fields: Airtable.FieldSet = {
     "Post Title": post.title,
-    "Source Article": post.sourceArticleId ? [post.sourceArticleId] : undefined,
-    "Post Type": post.postType,
+    "Post Type": linkedInPostTypeToAirtable[post.postType],
     "Brand Account": [post.brandId],
     "Content": post.content,
-    "Hashtags": post.hashtags,
-    "Link URL": post.linkUrl,
-    "Image URL": post.imageUrl,
-    "Status": post.status,
-    "Scheduled Date": post.scheduledDate,
-    "Scheduled Time": post.scheduledTime,
-  });
+    "Status": linkedInStatusToAirtable[post.status],
+  };
+
+  // Only add optional fields if they have values
+  if (post.sourceArticleId) fields["Source Article"] = [post.sourceArticleId];
+  if (post.hashtags) fields["Hashtags"] = post.hashtags;
+  if (post.linkUrl) fields["Link URL"] = post.linkUrl;
+  if (post.imageUrl) fields["Image URL"] = post.imageUrl;
+  if (post.scheduledDate) fields["Scheduled Date"] = post.scheduledDate;
+  if (post.scheduledTime) fields["Scheduled Time"] = post.scheduledTime;
+
+  const record = await base(TABLES.LINKEDIN_POSTS).create(fields);
 
   return record.id;
 }

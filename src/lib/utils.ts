@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import type { ContentType, ContentPillar, ArticleStatus, LinkedInPostType } from "@/types";
+import type { ContentType, ContentPillar, ArticleStatus, LinkedInPostType, LinkedInPostStatus } from "@/types";
 
 // Tailwind class merge utility
 export function cn(...inputs: ClassValue[]) {
@@ -125,6 +125,23 @@ export const linkedInPostTypeLabels: Record<LinkedInPostType, string> = {
   quote_graphic: "Quote Graphic",
   poll: "Poll",
   thread: "Thread",
+};
+
+// LinkedIn post type values for Airtable
+export const linkedInPostTypeToAirtable: Record<LinkedInPostType, string> = {
+  hot_take: "Hot Take",
+  article_share: "Article Share",
+  quote_graphic: "Quote Graphic",
+  poll: "Poll",
+  thread: "Thread",
+};
+
+// LinkedIn post status values for Airtable
+export const linkedInStatusToAirtable: Record<LinkedInPostStatus, string> = {
+  draft: "Draft",
+  approved: "Approved",
+  scheduled: "Scheduled",
+  posted: "Posted",
 };
 
 // Word count targets by content type
