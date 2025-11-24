@@ -271,7 +271,7 @@ export default function GenerateArticle() {
           linkedInPosts: linkedInPosts
             .filter((p) => p.selected)
             .map((p) => ({
-              title: `${p.type} - ${generatedTitle.slice(0, 30)}...`,
+              title: generatedTitle,
               postType: p.type,
               brandId: selectedBrand,
               content: p.content,
