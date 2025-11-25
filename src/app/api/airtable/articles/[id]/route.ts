@@ -8,14 +8,24 @@ export async function PATCH(
   try {
     const params = await context.params;
     const body = await request.json();
+    
+    console.log("Updating article:", params.id, body);
+    
     await updateArticle(params.id, body);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Failed to update article:", error);
+    
+    // Extract Airtable-specific error details
+    let errorDetails = error instanceof Error ? error.message : String(error);
+    if (error && typeof error === 'object' && 'error' in error) {
+      errorDetails = JSON.stringify(error);
+    }
+    
     return NextResponse.json(
       { 
         error: "Failed to update article",
-        details: error instanceof Error ? error.message : String(error)
+        details: errorDetails
       },
       { status: 500 }
     );

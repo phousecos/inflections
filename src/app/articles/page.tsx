@@ -129,7 +129,10 @@ export default function ArticlesPage() {
         body: JSON.stringify(editForm),
       });
 
-      if (!response.ok) throw new Error("Failed to update article");
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.details || "Failed to update article");
+      }
 
       // Update local state
       setArticles((prev) =>
@@ -140,6 +143,7 @@ export default function ArticlesPage() {
 
       setEditingArticle(null);
     } catch (err) {
+      console.error("Save error:", err);
       alert(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setSaving(false);
