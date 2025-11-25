@@ -55,6 +55,7 @@ export default function LinkedInPage() {
   const [editingPost, setEditingPost] = useState<LinkedInPost | null>(null);
   const [saving, setSaving] = useState(false);
   const [editForm, setEditForm] = useState({
+    title: "",
     content: "",
     hashtags: "",
     status: "draft" as LinkedInPostStatus,
@@ -121,6 +122,7 @@ export default function LinkedInPage() {
 
   const openEditModal = (post: LinkedInPost) => {
     setEditForm({
+      title: post.title,
       content: post.content,
       hashtags: post.hashtags || "",
       status: post.status,
@@ -419,6 +421,16 @@ export default function LinkedInPage() {
             </div>
 
             <div className="p-6 space-y-4">
+              <div>
+                <label className="label">Title (Internal Reference)</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={editForm.title}
+                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                />
+              </div>
+
               <div>
                 <label className="label">Content</label>
                 <textarea
