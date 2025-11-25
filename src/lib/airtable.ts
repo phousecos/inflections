@@ -157,18 +157,26 @@ export async function getArticles(filters?: {
   status?: ArticleStatus;
   brandId?: string;
   issueId?: string;
+  pillar?: Article["pillar"];
+  contentType?: Article["contentType"];
 }): Promise<Article[]> {
   let filterFormula = "";
   const conditions: string[] = [];
 
   if (filters?.status) {
-    conditions.push(`{Status} = "${filters.status}"`);
+    conditions.push(`{Status} = "${statusToAirtable[filters.status]}"`);
   }
   if (filters?.brandId) {
     conditions.push(`FIND("${filters.brandId}", ARRAYJOIN({Primary Brand}))`);
   }
   if (filters?.issueId) {
     conditions.push(`FIND("${filters.issueId}", ARRAYJOIN({Issue}))`);
+  }
+  if (filters?.pillar) {
+    conditions.push(`{Pillar} = "${pillarToAirtable[filters.pillar]}"`);
+  }
+  if (filters?.contentType) {
+    conditions.push(`{Content Type} = "${contentTypeToAirtable[filters.contentType]}"`);
   }
 
   if (conditions.length > 0) {
@@ -184,15 +192,51 @@ export async function getArticles(filters?: {
     })
     .all();
 
+  // Helper to map Airtable values back to internal values
+  const mapAirtableToContentType = (value: string): Article["contentType"] => {
+    const mapping: Record<string, Article["contentType"]> = {
+      "Feature": "feature",
+      "Perspective": "perspective",
+      "Practitioner Guide": "practitioner_guide",
+      "Spotlight": "spotlight",
+      "The Crossroads": "the_crossroads",
+      "Resource Roundup": "resource_roundup",
+    };
+    return mapping[value] || "perspective";
+  };
+
+  const mapAirtableToPillar = (value: string): Article["pillar"] => {
+    const mapping: Record<string, Article["pillar"]> = {
+      "Tech Leadership": "tech_leadership",
+      "Delivery Excellence": "delivery_excellence",
+      "Workforce Transformation": "workforce_transformation",
+      "Emerging Talent": "emerging_talent",
+      "Human Side": "human_side",
+    };
+    return mapping[value] || "tech_leadership";
+  };
+
+  const mapAirtableToStatus = (value: string): ArticleStatus => {
+    const mapping: Record<string, ArticleStatus> = {
+      "Idea": "idea",
+      "Drafting": "drafting",
+      "In Review": "in_review",
+      "Approved": "approved",
+      "Scheduled": "scheduled",
+      "Published": "published",
+    };
+    return mapping[value] || "drafting";
+  };
+
   return records.map((record) => ({
     id: record.id,
     title: record.get("Title") as string,
     issueId: (record.get("Issue") as string[])?.[0],
-    contentType: record.get("Content Type") as Article["contentType"],
+    contentType: mapAirtableToContentType(record.get("Content Type") as string),
     primaryBrandId: (record.get("Primary Brand") as string[])?.[0],
     secondaryBrandIds: (record.get("Secondary Brand") as string[]) || [],
-    pillar: record.get("Pillar") as Article["pillar"],
-    status: record.get("Status") as ArticleStatus,
+    pillar: mapAirtableToPillar(record.get("Pillar") as string),
+    status: mapAirtableToStatus(record.get("Status") as string),
     author: record.get("Author") as string | undefined,
     content: record.get("Content") as string,
     excerpt: record.get("Excerpt") as string | undefined,

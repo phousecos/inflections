@@ -1,18 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   Plus,
   Search,
   Filter,
-  MoreVertical,
   FileText,
   Calendar,
-  Eye,
   Edit,
   Trash2,
   ExternalLink,
+  Loader2,
+  Image as ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -21,119 +21,104 @@ import {
   pillarLabels,
   formatDate,
 } from "@/lib/utils";
-import type { ArticleStatus, ContentType, ContentPillar } from "@/types";
-
-// Mock articles data
-const mockArticles = [
-  {
-    id: "1",
-    title: "Why Your Disaster Recovery Plan Isn't Ready for 2026",
-    contentType: "perspective" as ContentType,
-    pillar: "tech_leadership" as ContentPillar,
-    status: "approved" as ArticleStatus,
-    brandName: "Unlimited Powerhouse",
-    brandColor: "#0020C2",
-    publishDate: "2026-01-06",
-    wordCount: 892,
-    createdAt: "2025-12-20",
-  },
-  {
-    id: "2",
-    title: "The Fractional CIO Model: When It Works and When It Doesn't",
-    contentType: "feature" as ContentType,
-    pillar: "tech_leadership" as ContentPillar,
-    status: "drafting" as ArticleStatus,
-    brandName: "Unlimited Powerhouse",
-    brandColor: "#0020C2",
-    publishDate: "2026-01-20",
-    wordCount: 1456,
-    createdAt: "2025-12-18",
-  },
-  {
-    id: "3",
-    title: "FCRA Updates: What Changed in 2025",
-    contentType: "practitioner_guide" as ContentType,
-    pillar: "workforce_transformation" as ContentPillar,
-    status: "in_review" as ArticleStatus,
-    brandName: "Vetters Group",
-    brandColor: "#6366F1",
-    publishDate: "2026-01-06",
-    wordCount: 1124,
-    createdAt: "2025-12-15",
-  },
-  {
-    id: "4",
-    title: "Returning to Tech in 2026: A Roadmap",
-    contentType: "practitioner_guide" as ContentType,
-    pillar: "workforce_transformation" as ContentPillar,
-    status: "drafting" as ArticleStatus,
-    brandName: "Lumynr",
-    brandColor: "#F22080",
-    publishDate: "2026-01-06",
-    wordCount: 980,
-    createdAt: "2025-12-14",
-  },
-  {
-    id: "5",
-    title: "Why Your PMO's First Priority Should Be Visibility",
-    contentType: "perspective" as ContentType,
-    pillar: "delivery_excellence" as ContentPillar,
-    status: "approved" as ArticleStatus,
-    brandName: "AgentPMO",
-    brandColor: "#10B981",
-    publishDate: "2026-01-08",
-    wordCount: 756,
-    createdAt: "2025-12-12",
-  },
-  {
-    id: "6",
-    title: "AI News: What Actually Matters This Month",
-    contentType: "the_crossroads" as ContentType,
-    pillar: "emerging_talent" as ContentPillar,
-    status: "published" as ArticleStatus,
-    brandName: "ISSA",
-    brandColor: "#14B8A6",
-    publishDate: "2025-12-20",
-    wordCount: 520,
-    createdAt: "2025-12-10",
-  },
-];
-
-type ViewMode = "list" | "kanban";
-type FilterStatus = ArticleStatus | "all";
+import type { Article, Brand, ArticleStatus, ContentType, ContentPillar } from "@/types";
 
 export default function ArticlesPage() {
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<FilterStatus>("all");
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [brands, setBrands] = useState<Brand[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const filteredArticles = mockArticles.filter((article) => {
-    const matchesSearch = article.title
-      .toLowerCase()
-      .includes(searchQuery.toLowerCase());
-    const matchesStatus =
-      statusFilter === "all" || article.status === statusFilter;
-    return matchesSearch && matchesStatus;
+  // Filters
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState<ArticleStatus | "all">("all");
+  const [filterBrand, setFilterBrand] = useState<string>("all");
+  const [filterPillar, setFilterPillar] = useState<ContentPillar | "all">("all");
+  const [filterContentType, setFilterContentType] = useState<ContentType | "all">("all");
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Fetch articles and brands
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [articlesRes, brandsRes] = await Promise.all([
+          fetch("/api/airtable/articles"),
+          fetch("/api/airtable/brands"),
+        ]);
+
+        if (!articlesRes.ok) throw new Error("Failed to fetch articles");
+        if (!brandsRes.ok) throw new Error("Failed to fetch brands");
+
+        const [articlesData, brandsData] = await Promise.all([
+          articlesRes.json(),
+          brandsRes.json(),
+        ]);
+
+        setArticles(articlesData);
+        setBrands(brandsData);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load data");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchData();
+  }, []);
+
+  // Filter articles
+  const filteredArticles = articles.filter((article) => {
+    if (searchQuery && !article.title.toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false;
+    }
+    if (filterStatus !== "all" && article.status !== filterStatus) return false;
+    if (filterBrand !== "all" && article.primaryBrandId !== filterBrand) return false;
+    if (filterPillar !== "all" && article.pillar !== filterPillar) return false;
+    if (filterContentType !== "all" && article.contentType !== filterContentType) return false;
+    return true;
   });
 
-  const statusCounts = mockArticles.reduce(
-    (acc, article) => {
-      acc[article.status] = (acc[article.status] || 0) + 1;
-      return acc;
-    },
-    {} as Record<string, number>
-  );
+  const getBrandName = (brandId: string) => {
+    return brands.find((b) => b.id === brandId)?.name || "Unknown";
+  };
+
+  const getBrandColor = (brandId: string) => {
+    return brands.find((b) => b.id === brandId)?.primaryColor || "#666";
+  };
+
+  const getWordCount = (content: string) => {
+    return content
+      .replace(/<[^>]*>/g, "") // Strip HTML
+      .trim()
+      .split(/\s+/)
+      .filter((word) => word.length > 0).length;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="w-8 h-8 animate-spin text-brand-blue" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-red-500">{error}</p>
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-6xl mx-auto animate-fade-in">
+    <div className="animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-display font-semibold text-studio-text-primary">
             Articles
           </h1>
           <p className="text-studio-text-secondary mt-1">
-            Manage your magazine articles
+            {filteredArticles.length} articles
           </p>
         </div>
         <Link href="/generate" className="btn-primary">
@@ -142,12 +127,11 @@ export default function ArticlesPage() {
         </Link>
       </div>
 
-      {/* Filters Bar */}
-      <div className="card mb-6">
-        <div className="p-4 flex items-center gap-4">
-          {/* Search */}
+      {/* Search and Filters */}
+      <div className="card p-4 mb-6">
+        <div className="flex flex-col lg:flex-row gap-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-studio-text-muted" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-studio-text-muted" />
             <input
               type="text"
               placeholder="Search articles..."
@@ -156,230 +140,231 @@ export default function ArticlesPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-
-          {/* Status Filter */}
-          <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-studio-text-muted" />
-            <select
-              className="select w-auto"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as FilterStatus)}
-            >
-              <option value="all">All Status</option>
-              {Object.entries(articleStatusConfig).map(([key, config]) => (
-                <option key={key} value={key}>
-                  {config.label} ({statusCounts[key] || 0})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* View Toggle */}
-          <div className="flex items-center bg-studio-bg rounded-lg p-1">
-            <button
-              onClick={() => setViewMode("list")}
-              className={cn(
-                "px-3 py-1.5 rounded text-sm font-medium transition-colors",
-                viewMode === "list"
-                  ? "bg-white shadow-sm text-studio-text-primary"
-                  : "text-studio-text-muted hover:text-studio-text-secondary"
-              )}
-            >
-              List
-            </button>
-            <button
-              onClick={() => setViewMode("kanban")}
-              className={cn(
-                "px-3 py-1.5 rounded text-sm font-medium transition-colors",
-                viewMode === "kanban"
-                  ? "bg-white shadow-sm text-studio-text-primary"
-                  : "text-studio-text-muted hover:text-studio-text-secondary"
-              )}
-            >
-              Kanban
-            </button>
-          </div>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={cn(
+              "btn-secondary",
+              showFilters && "bg-studio-bg"
+            )}
+          >
+            <Filter className="w-4 h-4" />
+            Filters
+          </button>
         </div>
+
+        {showFilters && (
+          <div className="mt-4 pt-4 border-t border-studio-border">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="label">Status</label>
+                <select
+                  className="select"
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value as ArticleStatus | "all")}
+                >
+                  <option value="all">All Statuses</option>
+                  {Object.entries(articleStatusConfig).map(([key, config]) => (
+                    <option key={key} value={key}>{config.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="label">Brand</label>
+                <select
+                  className="select"
+                  value={filterBrand}
+                  onChange={(e) => setFilterBrand(e.target.value)}
+                >
+                  <option value="all">All Brands</option>
+                  {brands.map((brand) => (
+                    <option key={brand.id} value={brand.id}>{brand.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="label">Pillar</label>
+                <select
+                  className="select"
+                  value={filterPillar}
+                  onChange={(e) => setFilterPillar(e.target.value as ContentPillar | "all")}
+                >
+                  <option value="all">All Pillars</option>
+                  {Object.entries(pillarLabels).map(([key, label]) => (
+                    <option key={key} value={key}>{label}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="label">Content Type</label>
+                <select
+                  className="select"
+                  value={filterContentType}
+                  onChange={(e) => setFilterContentType(e.target.value as ContentType | "all")}
+                >
+                  <option value="all">All Types</option>
+                  {Object.entries(contentTypeLabels).map(([key, label]) => (
+                    <option key={key} value={key}>{label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* List View */}
-      {viewMode === "list" && (
+      {/* Articles Table */}
+      {filteredArticles.length === 0 ? (
+        <div className="card p-12 text-center">
+          <FileText className="w-12 h-12 text-studio-text-muted mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-studio-text-primary mb-2">
+            No articles found
+          </h3>
+          <p className="text-studio-text-secondary mb-6">
+            {searchQuery || filterStatus !== "all" || filterBrand !== "all"
+              ? "Try adjusting your filters"
+              : "Get started by creating your first article"}
+          </p>
+          {!searchQuery && filterStatus === "all" && filterBrand === "all" && (
+            <Link href="/generate" className="btn-primary inline-flex">
+              <Plus className="w-4 h-4" />
+              Create Article
+            </Link>
+          )}
+        </div>
+      ) : (
         <div className="card overflow-hidden">
           <table className="w-full">
-            <thead>
-              <tr className="border-b border-studio-border bg-studio-bg">
-                <th className="text-left text-xs font-medium text-studio-text-secondary uppercase tracking-wider px-6 py-3">
+            <thead className="bg-studio-bg border-b border-studio-border">
+              <tr>
+                <th className="text-left px-6 py-3 text-sm font-medium text-studio-text-secondary">
                   Title
                 </th>
-                <th className="text-left text-xs font-medium text-studio-text-secondary uppercase tracking-wider px-6 py-3">
+                <th className="text-left px-6 py-3 text-sm font-medium text-studio-text-secondary">
                   Brand
                 </th>
-                <th className="text-left text-xs font-medium text-studio-text-secondary uppercase tracking-wider px-6 py-3">
+                <th className="text-left px-6 py-3 text-sm font-medium text-studio-text-secondary">
                   Type
                 </th>
-                <th className="text-left text-xs font-medium text-studio-text-secondary uppercase tracking-wider px-6 py-3">
+                <th className="text-left px-6 py-3 text-sm font-medium text-studio-text-secondary">
                   Status
                 </th>
-                <th className="text-left text-xs font-medium text-studio-text-secondary uppercase tracking-wider px-6 py-3">
-                  Publish Date
+                <th className="text-left px-6 py-3 text-sm font-medium text-studio-text-secondary">
+                  Words
                 </th>
-                <th className="text-right text-xs font-medium text-studio-text-secondary uppercase tracking-wider px-6 py-3">
+                <th className="text-left px-6 py-3 text-sm font-medium text-studio-text-secondary">
+                  Date
+                </th>
+                <th className="text-right px-6 py-3 text-sm font-medium text-studio-text-secondary">
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-studio-border">
-              {filteredArticles.map((article) => {
-                const statusConfig = articleStatusConfig[article.status];
-                return (
-                  <tr
-                    key={article.id}
-                    className="hover:bg-studio-bg/50 transition-colors"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex items-start gap-3">
-                        <FileText className="w-5 h-5 text-studio-text-muted mt-0.5" />
-                        <div>
-                          <p className="font-medium text-studio-text-primary">
-                            {article.title}
-                          </p>
-                          <p className="text-xs text-studio-text-muted mt-0.5">
-                            {article.wordCount} words ·{" "}
-                            {pillarLabels[article.pillar]}
-                          </p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-2.5 h-2.5 rounded-full"
-                          style={{ backgroundColor: article.brandColor }}
+              {filteredArticles.map((article) => (
+                <tr key={article.id} className="hover:bg-studio-bg/50 transition-colors">
+                  <td className="px-6 py-4">
+                    <div className="flex items-start gap-3">
+                      {article.featuredImageUrl ? (
+                        <img
+                          src={article.featuredImageUrl}
+                          alt=""
+                          className="w-16 h-16 rounded object-cover flex-shrink-0"
                         />
-                        <span className="text-sm text-studio-text-secondary">
-                          {article.brandName}
-                        </span>
+                      ) : (
+                        <div className="w-16 h-16 rounded bg-studio-bg flex items-center justify-center flex-shrink-0">
+                          <FileText className="w-6 h-6 text-studio-text-muted" />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-medium text-studio-text-primary mb-1">
+                          {article.title}
+                        </h3>
+                        {article.excerpt && (
+                          <p className="text-xs text-studio-text-muted line-clamp-2">
+                            {article.excerpt}
+                          </p>
+                        )}
                       </div>
-                    </td>
-                    <td className="px-6 py-4">
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: getBrandColor(article.primaryBrandId) }}
+                      />
                       <span className="text-sm text-studio-text-secondary">
+                        {getBrandName(article.primaryBrandId)}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col gap-1">
+                      <span className="badge bg-studio-bg text-studio-text-secondary text-xs">
                         {contentTypeLabels[article.contentType]}
                       </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={cn(
-                          "badge",
-                          statusConfig.bgColor,
-                          statusConfig.color
-                        )}
-                      >
-                        {statusConfig.label}
+                      <span className="text-xs text-studio-text-muted">
+                        {pillarLabels[article.pillar]}
                       </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2 text-sm text-studio-text-secondary">
-                        <Calendar className="w-4 h-4" />
-                        {formatDate(article.publishDate)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        <button className="btn-ghost p-2">
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button className="btn-ghost p-2">
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        <button className="btn-ghost p-2">
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-
-          {filteredArticles.length === 0 && (
-            <div className="p-12 text-center">
-              <FileText className="w-12 h-12 text-studio-text-muted mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-studio-text-primary mb-1">
-                No articles found
-              </h3>
-              <p className="text-studio-text-secondary">
-                Try adjusting your search or filters
-              </p>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Kanban View */}
-      {viewMode === "kanban" && (
-        <div className="grid grid-cols-4 gap-4">
-          {(["drafting", "in_review", "approved", "published"] as ArticleStatus[]).map(
-            (status) => {
-              const config = articleStatusConfig[status];
-              const statusArticles = filteredArticles.filter(
-                (a) => a.status === status
-              );
-
-              return (
-                <div key={status} className="card">
-                  <div
-                    className={cn(
-                      "px-4 py-3 border-b border-studio-border flex items-center justify-between",
-                      config.bgColor
-                    )}
-                  >
-                    <span className={cn("font-medium text-sm", config.color)}>
-                      {config.label}
-                    </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
                     <span
                       className={cn(
-                        "text-xs px-2 py-0.5 rounded-full",
-                        config.bgColor,
-                        config.color
+                        "badge text-xs",
+                        articleStatusConfig[article.status].bgColor,
+                        articleStatusConfig[article.status].color
                       )}
                     >
-                      {statusArticles.length}
+                      {articleStatusConfig[article.status].label}
                     </span>
-                  </div>
-                  <div className="p-3 space-y-3 min-h-[400px]">
-                    {statusArticles.map((article) => (
-                      <div
-                        key={article.id}
-                        className="p-3 bg-studio-bg rounded-lg hover:shadow-soft transition-shadow cursor-pointer"
+                  </td>
+                  <td className="px-6 py-4">
+                    <span className="text-sm text-studio-text-secondary">
+                      {article.actualWordCount || getWordCount(article.content)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex flex-col gap-1">
+                      {article.publishDate && (
+                        <div className="flex items-center gap-1 text-xs text-studio-text-secondary">
+                          <Calendar className="w-3 h-3" />
+                          {formatDate(article.publishDate)}
+                        </div>
+                      )}
+                      <span className="text-xs text-studio-text-muted">
+                        Updated {formatDate(article.updatedAt)}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex items-center justify-end gap-2">
+                      {article.publishedUrl && (
+                        <a
+                          href={article.publishedUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 hover:bg-studio-bg rounded-lg transition-colors"
+                          title="View published"
+                        >
+                          <ExternalLink className="w-4 h-4 text-studio-text-muted" />
+                        </a>
+                      )}
+                      <button
+                        className="p-2 hover:bg-studio-bg rounded-lg transition-colors"
+                        title="Edit"
                       >
-                        <div className="flex items-center gap-2 mb-2">
-                          <div
-                            className="w-2 h-2 rounded-full"
-                            style={{ backgroundColor: article.brandColor }}
-                          />
-                          <span className="text-xs text-studio-text-muted">
-                            {article.brandName}
-                          </span>
-                        </div>
-                        <p className="text-sm font-medium text-studio-text-primary line-clamp-2">
-                          {article.title}
-                        </p>
-                        <div className="flex items-center justify-between mt-2">
-                          <span className="text-xs text-studio-text-muted">
-                            {article.wordCount} words
-                          </span>
-                          <span className="text-xs text-studio-text-muted">
-                            {formatDate(article.publishDate)}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            }
-          )}
+                        <Edit className="w-4 h-4 text-studio-text-muted" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
