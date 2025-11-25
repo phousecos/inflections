@@ -466,7 +466,6 @@ export async function createIssue(issue: Omit<Issue, "id">): Promise<string> {
   const { issueStatusToAirtable } = require("./utils");
   
   const fields: Airtable.FieldSet = {
-    "Issue Number": issue.issueNumber,
     "Issue Title": issue.title,
     "Status": issueStatusToAirtable[issue.status],
   };
@@ -491,7 +490,7 @@ export async function updateIssue(
   
   const fields: Airtable.FieldSet = {};
 
-  if (updates.issueNumber) fields["Issue Number"] = updates.issueNumber;
+  // Issue Number is computed by Airtable, don't update it
   if (updates.title) fields["Issue Title"] = updates.title;
   if (updates.publishDate && updates.publishDate !== "") {
     fields["Publish Date"] = updates.publishDate;

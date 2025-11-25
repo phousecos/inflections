@@ -349,16 +349,17 @@ export default function IssuesPage() {
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="label">Issue Number *</label>
+                  <label className="label">Issue Number</label>
                   <input
-                    type="number"
-                    min="1"
-                    className="input"
-                    value={formData.issueNumber}
-                    onChange={(e) =>
-                      setFormData({ ...formData, issueNumber: parseInt(e.target.value) || 1 })
-                    }
+                    type="text"
+                    className="input bg-gray-50 cursor-not-allowed"
+                    value={editingIssue ? `#${formData.issueNumber}` : "Auto-generated"}
+                    disabled
+                    readOnly
                   />
+                  <p className="text-xs text-studio-text-muted mt-1">
+                    {editingIssue ? "Issue number cannot be changed" : "Will be assigned automatically"}
+                  </p>
                 </div>
 
                 <div>
