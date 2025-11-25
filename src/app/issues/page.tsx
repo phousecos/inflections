@@ -228,11 +228,11 @@ export default function IssuesPage() {
                       <span
                         className={cn(
                           "badge text-xs",
-                          statusColors[issue.status].bg,
-                          statusColors[issue.status].text
+                          statusColors[issue.status]?.bg || "bg-gray-100",
+                          statusColors[issue.status]?.text || "text-gray-700"
                         )}
                       >
-                        {statusLabels[issue.status]}
+                        {statusLabels[issue.status] || issue.status}
                       </span>
                     </div>
                     <h3 className="text-lg font-semibold text-studio-text-primary mb-1">

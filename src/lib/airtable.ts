@@ -440,23 +440,36 @@ export async function getIssues(): Promise<Issue[]> {
     })
     .all();
 
+  // Helper to map Airtable values back to internal values
+  const mapAirtableToIssueStatus = (value: string): Issue["status"] => {
+    const mapping: Record<string, Issue["status"]> = {
+      "Planning": "planning",
+      "In Production": "in_production",
+      "Ready": "ready",
+      "Published": "published",
+    };
+    return mapping[value] || "planning";
+  };
+
   return records.map((record) => ({
     id: record.id,
     issueNumber: record.get("Issue Number") as number,
     title: record.get("Issue Title") as string,
     publishDate: record.get("Publish Date") as string,
-    status: record.get("Status") as Issue["status"],
+    status: mapAirtableToIssueStatus(record.get("Status") as string),
     themeDescription: record.get("Theme Description") as string | undefined,
     notes: record.get("Notes") as string | undefined,
   }));
 }
 
 export async function createIssue(issue: Omit<Issue, "id">): Promise<string> {
+  const { issueStatusToAirtable } = require("./utils");
+  
   const fields: Airtable.FieldSet = {
     "Issue Number": issue.issueNumber,
     "Issue Title": issue.title,
     "Publish Date": issue.publishDate,
-    "Status": issue.status,
+    "Status": issueStatusToAirtable[issue.status],
   };
 
   if (issue.themeDescription) fields["Theme Description"] = issue.themeDescription;
@@ -470,6 +483,8 @@ export async function updateIssue(
   id: string,
   updates: Partial<Omit<Issue, "id">>
 ): Promise<void> {
+  const { issueStatusToAirtable } = require("./utils");
+  
   const fields: Airtable.FieldSet = {};
 
   if (updates.issueNumber) fields["Issue Number"] = updates.issueNumber;
@@ -477,7 +492,7 @@ export async function updateIssue(
   if (updates.publishDate && updates.publishDate !== "") {
     fields["Publish Date"] = updates.publishDate;
   }
-  if (updates.status) fields["Status"] = updates.status;
+  if (updates.status) fields["Status"] = issueStatusToAirtable[updates.status];
   if (updates.themeDescription !== undefined) fields["Theme Description"] = updates.themeDescription || "";
   if (updates.notes !== undefined) fields["Notes"] = updates.notes || "";
 

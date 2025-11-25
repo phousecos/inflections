@@ -203,6 +203,14 @@ export const topicStatusLabels: Record<string, string> = {
   rejected: "Rejected",
 };
 
+// Issue status mappings
+export const issueStatusToAirtable: Record<string, string> = {
+  planning: "Planning",
+  in_production: "In Production",
+  ready: "Ready",
+  published: "Published",
+};
+
 // Word count targets by content type
 export const wordCountTargets: Record<ContentType, { min: number; max: number }> = {
   feature: { min: 1200, max: 2000 },
