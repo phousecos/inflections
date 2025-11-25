@@ -110,7 +110,7 @@ export default function IssuesPage() {
   };
 
   const handleSave = async () => {
-    if (!formData.title.trim()) {
+    if (!formData.title || !formData.title.trim()) {
       alert("Issue title is required");
       return;
     }
@@ -125,7 +125,10 @@ export default function IssuesPage() {
           body: JSON.stringify({ id: editingIssue.id, ...formData }),
         });
 
-        if (!response.ok) throw new Error("Failed to update issue");
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.details || "Failed to update issue");
+        }
 
         setIssues((prev) =>
           prev.map((i) => (i.id === editingIssue.id ? { ...i, ...formData } : i))
@@ -138,7 +141,10 @@ export default function IssuesPage() {
           body: JSON.stringify(formData),
         });
 
-        if (!response.ok) throw new Error("Failed to create issue");
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.details || "Failed to create issue");
+        }
 
         const { id } = await response.json();
         setIssues((prev) => [{ id, ...formData }, ...prev]);
@@ -146,6 +152,7 @@ export default function IssuesPage() {
 
       setShowModal(false);
     } catch (err) {
+      console.error("Save error:", err);
       alert(err instanceof Error ? err.message : "Failed to save");
     } finally {
       setSaving(false);
@@ -424,7 +431,7 @@ export default function IssuesPage() {
               <button onClick={() => setShowModal(false)} className="btn-secondary">
                 Cancel
               </button>
-              <button onClick={handleSave} disabled={saving} className="btn-primary">
+              <button onClick={handleSave} disabled={saving || !formData.title?.trim()} className="btn-primary">
                 {saving ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (

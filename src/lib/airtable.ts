@@ -468,10 +468,14 @@ export async function createIssue(issue: Omit<Issue, "id">): Promise<string> {
   const fields: Airtable.FieldSet = {
     "Issue Number": issue.issueNumber,
     "Issue Title": issue.title,
-    "Publish Date": issue.publishDate,
     "Status": issueStatusToAirtable[issue.status],
   };
 
+  // Only include publish date if it has a value
+  if (issue.publishDate && issue.publishDate !== "") {
+    fields["Publish Date"] = issue.publishDate;
+  }
+  
   if (issue.themeDescription) fields["Theme Description"] = issue.themeDescription;
   if (issue.notes) fields["Notes"] = issue.notes;
 

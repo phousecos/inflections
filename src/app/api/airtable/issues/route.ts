@@ -21,14 +21,23 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body: Omit<Issue, "id"> = await request.json();
+    console.log("Creating issue:", body);
+    
     const id = await createIssue(body);
     return NextResponse.json({ success: true, id });
   } catch (error) {
     console.error("Failed to create issue:", error);
+    
+    // Extract Airtable-specific error details
+    let errorDetails = error instanceof Error ? error.message : String(error);
+    if (error && typeof error === 'object' && 'error' in error) {
+      errorDetails = JSON.stringify(error);
+    }
+    
     return NextResponse.json(
       { 
         error: "Failed to create issue",
-        details: error instanceof Error ? error.message : String(error)
+        details: errorDetails
       },
       { status: 500 }
     );
@@ -39,6 +48,8 @@ export async function PATCH(request: NextRequest) {
   try {
     const body = await request.json();
     const { id, ...updates } = body;
+    
+    console.log("Updating issue:", id, updates);
     
     if (!id) {
       return NextResponse.json(
@@ -51,10 +62,17 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Failed to update issue:", error);
+    
+    // Extract Airtable-specific error details
+    let errorDetails = error instanceof Error ? error.message : String(error);
+    if (error && typeof error === 'object' && 'error' in error) {
+      errorDetails = JSON.stringify(error);
+    }
+    
     return NextResponse.json(
       { 
         error: "Failed to update issue",
-        details: error instanceof Error ? error.message : String(error)
+        details: errorDetails
       },
       { status: 500 }
     );
