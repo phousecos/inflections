@@ -3,9 +3,10 @@ import { updateLinkedInPost } from "@/lib/airtable";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const body = await request.json();
     await updateLinkedInPost(params.id, body);
     return NextResponse.json({ success: true });
