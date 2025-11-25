@@ -13,6 +13,7 @@ import {
   X,
   Check,
   ExternalLink,
+  Sparkles,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -42,11 +43,34 @@ const statusColors: Record<TopicStatus, { bg: string; text: string }> = {
   rejected: { bg: "bg-red-50", text: "text-red-600" },
 };
 
+const pillarDescriptions: Record<string, string> = {
+  tech_leadership: "Technology strategy, IT leadership, digital transformation",
+  delivery_excellence: "Project management, delivery optimization, operational efficiency",
+  workforce_transformation: "Talent management, team building, organizational change",
+  emerging_talent: "Career development, skills training, workforce readiness",
+  human_side: "Leadership psychology, workplace culture, personal effectiveness",
+};
+
 export default function TopicsBank() {
   const [topics, setTopics] = useState<Topic[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // AI Generator state
+  const [showGenerateModal, setShowGenerateModal] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [generatedTopics, setGeneratedTopics] = useState<Array<{
+    topic: string;
+    description: string;
+    timeliness: string;
+    selected: boolean;
+  }>>([]);
+  const [generateForm, setGenerateForm] = useState({
+    brandId: "",
+    pillar: "" as ContentPillar | "",
+    count: 5,
+  });
 
   // Filters
   const [filterStatus, setFilterStatus] = useState<TopicStatus | "all">("all");
@@ -246,6 +270,101 @@ export default function TopicsBank() {
     }
   };
 
+  const handleGenerateTopics = async () => {
+    if (!generateForm.brandId || !generateForm.pillar) {
+      alert("Please select both brand and pillar");
+      return;
+    }
+
+    setGenerating(true);
+    try {
+      const brand = brands.find((b) => b.id === generateForm.brandId);
+      if (!brand) throw new Error("Brand not found");
+
+      const response = await fetch("/api/generate/topics", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brandName: brand.name,
+          brandVoice: brand.voiceSummary,
+          targetAudience: brand.targetAudience,
+          pillar: pillarLabels[generateForm.pillar],
+          pillarDescription: pillarDescriptions[generateForm.pillar],
+          count: generateForm.count,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to generate topics");
+
+      const data = await response.json();
+      setGeneratedTopics(data.topics.map((t: any) => ({ ...t, selected: true })));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to generate");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleSaveGeneratedTopics = async () => {
+    const selectedTopics = generatedTopics.filter((t) => t.selected);
+    if (selectedTopics.length === 0) {
+      alert("Please select at least one topic");
+      return;
+    }
+
+    setGenerating(true);
+    try {
+      // Create topics in Airtable
+      for (const genTopic of selectedTopics) {
+        const response = await fetch("/api/airtable/topics", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            topic: genTopic.topic,
+            description: genTopic.description,
+            source: "ai_suggested",
+            primaryBrandId: generateForm.brandId,
+            pillar: generateForm.pillar,
+            priority: "medium",
+            timeliness: genTopic.timeliness.toLowerCase().includes("timely") ? "timely" : "evergreen",
+            status: "new",
+            notes: `AI suggested: ${genTopic.timeliness}`,
+            secondaryBrandIds: [],
+          }),
+        });
+
+        if (!response.ok) throw new Error("Failed to create topic");
+
+        const { id } = await response.json();
+        setTopics((prev) => [
+          {
+            id,
+            topic: genTopic.topic,
+            description: genTopic.description,
+            source: "ai_suggested",
+            primaryBrandId: generateForm.brandId,
+            secondaryBrandIds: [],
+            pillar: generateForm.pillar as ContentPillar,
+            priority: "medium",
+            timeliness: genTopic.timeliness.toLowerCase().includes("timely") ? "timely" : "evergreen",
+            status: "new",
+            notes: `AI suggested: ${genTopic.timeliness}`,
+            createdAt: new Date().toISOString(),
+          } as Topic,
+          ...prev,
+        ]);
+      }
+
+      setShowGenerateModal(false);
+      setGeneratedTopics([]);
+      setGenerateForm({ brandId: "", pillar: "", count: 5 });
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const getBrandName = (brandId?: string) => {
     if (!brandId) return null;
     return brands.find((b) => b.id === brandId)?.name;
@@ -294,6 +413,13 @@ export default function TopicsBank() {
           >
             <Filter className="w-4 h-4" />
             Filters
+          </button>
+          <button 
+            onClick={() => setShowGenerateModal(true)}
+            className="btn-secondary"
+          >
+            <Sparkles className="w-4 h-4" />
+            Generate Ideas
           </button>
           <button onClick={openAddModal} className="btn-primary">
             <Plus className="w-4 h-4" />
@@ -638,6 +764,164 @@ export default function TopicsBank() {
                 )}
                 {editingTopic ? "Save Changes" : "Add Topic"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Generate Topics Modal */}
+      {showGenerateModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-studio-border flex items-center justify-between sticky top-0 bg-white">
+              <h2 className="text-xl font-display font-semibold flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-brand-blue" />
+                Generate Topic Ideas
+              </h2>
+              <button
+                onClick={() => {
+                  setShowGenerateModal(false);
+                  setGeneratedTopics([]);
+                }}
+                className="p-2 hover:bg-studio-bg rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {generatedTopics.length === 0 ? (
+                <>
+                  <p className="text-studio-text-secondary">
+                    Select a brand and content pillar to generate AI-powered topic suggestions.
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="label">Brand *</label>
+                      <select
+                        className="select"
+                        value={generateForm.brandId}
+                        onChange={(e) => setGenerateForm({ ...generateForm, brandId: e.target.value })}
+                      >
+                        <option value="">Select brand...</option>
+                        {brands.map((brand) => (
+                          <option key={brand.id} value={brand.id}>{brand.name}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="label">Content Pillar *</label>
+                      <select
+                        className="select"
+                        value={generateForm.pillar}
+                        onChange={(e) => setGenerateForm({ ...generateForm, pillar: e.target.value as ContentPillar | "" })}
+                      >
+                        <option value="">Select pillar...</option>
+                        {Object.entries(pillarLabels).map(([key, label]) => (
+                          <option key={key} value={key}>{label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="label">Number of Ideas</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      className="input"
+                      value={generateForm.count}
+                      onChange={(e) => setGenerateForm({ ...generateForm, count: parseInt(e.target.value) || 5 })}
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-studio-text-secondary">
+                    Select the topics you want to add to your Topics Bank:
+                  </p>
+                  <div className="space-y-3">
+                    {generatedTopics.map((genTopic, idx) => (
+                      <div
+                        key={idx}
+                        className={cn(
+                          "p-4 rounded-lg border-2 transition-colors cursor-pointer",
+                          genTopic.selected
+                            ? "border-brand-blue bg-blue-50"
+                            : "border-studio-border hover:border-studio-border-hover"
+                        )}
+                        onClick={() => {
+                          setGeneratedTopics((prev) =>
+                            prev.map((t, i) => (i === idx ? { ...t, selected: !t.selected } : t))
+                          );
+                        }}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={cn(
+                            "w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5",
+                            genTopic.selected ? "border-brand-blue bg-brand-blue" : "border-gray-300"
+                          )}>
+                            {genTopic.selected && <Check className="w-3 h-3 text-white" />}
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-medium text-studio-text-primary mb-1">
+                              {genTopic.topic}
+                            </h4>
+                            <p className="text-sm text-studio-text-secondary mb-2">
+                              {genTopic.description}
+                            </p>
+                            <p className="text-xs text-studio-text-muted italic">
+                              Why now: {genTopic.timeliness}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="p-6 border-t border-studio-border flex justify-end gap-3 sticky bottom-0 bg-white">
+              <button
+                onClick={() => {
+                  setShowGenerateModal(false);
+                  setGeneratedTopics([]);
+                }}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              {generatedTopics.length === 0 ? (
+                <button
+                  onClick={handleGenerateTopics}
+                  disabled={generating || !generateForm.brandId || !generateForm.pillar}
+                  className="btn-primary"
+                >
+                  {generating ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4" />
+                  )}
+                  Generate Topics
+                </button>
+              ) : (
+                <button
+                  onClick={handleSaveGeneratedTopics}
+                  disabled={generating || !generatedTopics.some(t => t.selected)}
+                  className="btn-primary"
+                >
+                  {generating ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Check className="w-4 h-4" />
+                  )}
+                  Add Selected ({generatedTopics.filter(t => t.selected).length})
+                </button>
+              )}
             </div>
           </div>
         </div>
