@@ -86,6 +86,7 @@ export default function ArticlesPage() {
   };
 
   const getWordCount = (content: string) => {
+    if (!content) return 0;
     return content
       .replace(/<[^>]*>/g, "") // Strip HTML
       .trim()
