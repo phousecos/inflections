@@ -296,10 +296,13 @@ export async function updateArticle(
   if (updates.pillar) fields["Pillar"] = pillarToAirtable[updates.pillar];
   if (updates.status) fields["Status"] = statusToAirtable[updates.status];
   if (updates.content) fields["Content"] = updates.content;
-  if (updates.excerpt !== undefined) fields["Excerpt"] = updates.excerpt;
-  if (updates.metaDescription !== undefined) fields["Meta Description"] = updates.metaDescription;
+  if (updates.excerpt !== undefined) fields["Excerpt"] = updates.excerpt || "";
+  if (updates.metaDescription !== undefined) fields["Meta Description"] = updates.metaDescription || "";
   if (updates.featuredImageUrl) fields["Featured Image URL"] = updates.featuredImageUrl;
-  if (updates.publishDate !== undefined) fields["Publish Date"] = updates.publishDate;
+  // Only include publish date if it has a value, otherwise Airtable will reject empty string
+  if (updates.publishDate && updates.publishDate !== "") {
+    fields["Publish Date"] = updates.publishDate;
+  }
 
   await base(TABLES.ARTICLES).update(id, fields);
 }
@@ -415,9 +418,12 @@ export async function updateLinkedInPost(
   if (updates.title) fields["Post Title"] = updates.title;
   if (updates.content) fields["Content"] = updates.content;
   if (updates.status) fields["Status"] = linkedInStatusToAirtable[updates.status];
-  if (updates.scheduledDate !== undefined) fields["Scheduled Date"] = updates.scheduledDate;
-  if (updates.scheduledTime !== undefined) fields["Scheduled Time"] = updates.scheduledTime;
-  if (updates.hashtags !== undefined) fields["Hashtags"] = updates.hashtags;
+  // Only include dates if they have values, otherwise Airtable will reject empty strings
+  if (updates.scheduledDate && updates.scheduledDate !== "") {
+    fields["Scheduled Date"] = updates.scheduledDate;
+  }
+  if (updates.scheduledTime !== undefined) fields["Scheduled Time"] = updates.scheduledTime || "";
+  if (updates.hashtags !== undefined) fields["Hashtags"] = updates.hashtags || "";
 
   await base(TABLES.LINKEDIN_POSTS).update(id, fields);
 }
