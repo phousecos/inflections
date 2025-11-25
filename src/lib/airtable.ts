@@ -310,18 +310,22 @@ export async function getLinkedInPosts(filters?: {
   status?: LinkedInPostStatus;
   brandId?: string;
   articleId?: string;
+  postType?: LinkedInPost["postType"];
 }): Promise<LinkedInPost[]> {
   let filterFormula = "";
   const conditions: string[] = [];
 
   if (filters?.status) {
-    conditions.push(`{Status} = "${filters.status}"`);
+    conditions.push(`{Status} = "${linkedInStatusToAirtable[filters.status]}"`);
   }
   if (filters?.brandId) {
     conditions.push(`FIND("${filters.brandId}", ARRAYJOIN({Brand Account}))`);
   }
   if (filters?.articleId) {
     conditions.push(`FIND("${filters.articleId}", ARRAYJOIN({Source Article}))`);
+  }
+  if (filters?.postType) {
+    conditions.push(`{Post Type} = "${linkedInPostTypeToAirtable[filters.postType]}"`);
   }
 
   if (conditions.length > 0) {
@@ -337,18 +341,40 @@ export async function getLinkedInPosts(filters?: {
     })
     .all();
 
+  // Helper to map Airtable values back to internal values
+  const mapAirtableToPostType = (value: string): LinkedInPost["postType"] => {
+    const mapping: Record<string, LinkedInPost["postType"]> = {
+      "Hot Take": "hot_take",
+      "Article Share": "article_share",
+      "Quote Graphic": "quote_graphic",
+      "Poll": "poll",
+      "Thread": "thread",
+    };
+    return mapping[value] || "article_share";
+  };
+
+  const mapAirtableToPostStatus = (value: string): LinkedInPostStatus => {
+    const mapping: Record<string, LinkedInPostStatus> = {
+      "Draft": "draft",
+      "Approved": "approved",
+      "Scheduled": "scheduled",
+      "Posted": "posted",
+    };
+    return mapping[value] || "draft";
+  };
+
   return records.map((record) => ({
     id: record.id,
     title: record.get("Post Title") as string,
     sourceArticleId: (record.get("Source Article") as string[])?.[0],
-    postType: record.get("Post Type") as LinkedInPost["postType"],
+    postType: mapAirtableToPostType(record.get("Post Type") as string),
     brandId: (record.get("Brand Account") as string[])?.[0],
     content: record.get("Content") as string,
     characterCount: (record.get("Content") as string)?.length || 0,
     hashtags: record.get("Hashtags") as string | undefined,
     linkUrl: record.get("Link URL") as string | undefined,
     imageUrl: record.get("Image URL") as string | undefined,
-    status: record.get("Status") as LinkedInPostStatus,
+    status: mapAirtableToPostStatus(record.get("Status") as string),
     scheduledDate: record.get("Scheduled Date") as string | undefined,
     scheduledTime: record.get("Scheduled Time") as string | undefined,
     postedDate: record.get("Posted Date") as string | undefined,
