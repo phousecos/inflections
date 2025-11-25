@@ -22,7 +22,7 @@ const navigation = [
   { name: "Articles", href: "/articles", icon: FileText },
   { name: "LinkedIn", href: "/linkedin", icon: Linkedin },
   { name: "Topics", href: "/topics", icon: Lightbulb },
-  { name: "Calendar", href: "/calendar", icon: Calendar },
+  { name: "Issues", href: "/issues", icon: Calendar },
   { name: "Images", href: "/images", icon: Image },
   { name: "Brands", href: "/brands", icon: Building2 },
 ];

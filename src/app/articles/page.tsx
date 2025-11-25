@@ -28,6 +28,7 @@ import type { Article, Brand, ArticleStatus, ContentType, ContentPillar } from "
 export default function ArticlesPage() {
   const [articles, setArticles] = useState<Article[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
+  const [issues, setIssues] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -48,27 +49,32 @@ export default function ArticlesPage() {
     metaDescription: "",
     status: "drafting" as ArticleStatus,
     publishDate: "",
+    issueId: "",
   });
 
-  // Fetch articles and brands
+  // Fetch articles, brands, and issues
   useEffect(() => {
     async function fetchData() {
       try {
-        const [articlesRes, brandsRes] = await Promise.all([
+        const [articlesRes, brandsRes, issuesRes] = await Promise.all([
           fetch("/api/airtable/articles"),
           fetch("/api/airtable/brands"),
+          fetch("/api/airtable/issues"),
         ]);
 
         if (!articlesRes.ok) throw new Error("Failed to fetch articles");
         if (!brandsRes.ok) throw new Error("Failed to fetch brands");
+        if (!issuesRes.ok) throw new Error("Failed to fetch issues");
 
-        const [articlesData, brandsData] = await Promise.all([
+        const [articlesData, brandsData, issuesData] = await Promise.all([
           articlesRes.json(),
           brandsRes.json(),
+          issuesRes.json(),
         ]);
 
         setArticles(articlesData);
         setBrands(brandsData);
+        setIssues(issuesData);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load data");
       } finally {
@@ -114,6 +120,7 @@ export default function ArticlesPage() {
       metaDescription: article.metaDescription || "",
       status: article.status,
       publishDate: article.publishDate || "",
+      issueId: article.issueId || "",
     });
     setEditingArticle(article);
   };
@@ -494,6 +501,22 @@ export default function ArticlesPage() {
                     onChange={(e) => setEditForm({ ...editForm, publishDate: e.target.value })}
                   />
                 </div>
+              </div>
+
+              <div>
+                <label className="label">Assign to Issue (optional)</label>
+                <select
+                  className="select"
+                  value={editForm.issueId}
+                  onChange={(e) => setEditForm({ ...editForm, issueId: e.target.value })}
+                >
+                  <option value="">No issue assigned</option>
+                  {issues.map((issue) => (
+                    <option key={issue.id} value={issue.id}>
+                      Issue #{issue.issueNumber} - {issue.title}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 

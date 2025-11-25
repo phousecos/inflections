@@ -287,7 +287,10 @@ export async function updateArticle(
   const fields: Airtable.FieldSet = {};
 
   if (updates.title) fields["Title"] = updates.title;
-  if (updates.issueId) fields["Issue"] = [updates.issueId];
+  // Handle issue assignment - empty string means unassign
+  if (updates.issueId !== undefined) {
+    fields["Issue"] = updates.issueId ? [updates.issueId] : [];
+  }
   if (updates.contentType) fields["Content Type"] = contentTypeToAirtable[updates.contentType];
   if (updates.primaryBrandId) fields["Primary Brand"] = [updates.primaryBrandId];
   if (updates.secondaryBrandIds && updates.secondaryBrandIds.length > 0) {
@@ -446,6 +449,39 @@ export async function getIssues(): Promise<Issue[]> {
     themeDescription: record.get("Theme Description") as string | undefined,
     notes: record.get("Notes") as string | undefined,
   }));
+}
+
+export async function createIssue(issue: Omit<Issue, "id">): Promise<string> {
+  const fields: Airtable.FieldSet = {
+    "Issue Number": issue.issueNumber,
+    "Issue Title": issue.title,
+    "Publish Date": issue.publishDate,
+    "Status": issue.status,
+  };
+
+  if (issue.themeDescription) fields["Theme Description"] = issue.themeDescription;
+  if (issue.notes) fields["Notes"] = issue.notes;
+
+  const record = await base(TABLES.ISSUES).create(fields);
+  return record.id;
+}
+
+export async function updateIssue(
+  id: string,
+  updates: Partial<Omit<Issue, "id">>
+): Promise<void> {
+  const fields: Airtable.FieldSet = {};
+
+  if (updates.issueNumber) fields["Issue Number"] = updates.issueNumber;
+  if (updates.title) fields["Issue Title"] = updates.title;
+  if (updates.publishDate && updates.publishDate !== "") {
+    fields["Publish Date"] = updates.publishDate;
+  }
+  if (updates.status) fields["Status"] = updates.status;
+  if (updates.themeDescription !== undefined) fields["Theme Description"] = updates.themeDescription || "";
+  if (updates.notes !== undefined) fields["Notes"] = updates.notes || "";
+
+  await base(TABLES.ISSUES).update(id, fields);
 }
 
 // ============ TOPICS ============
