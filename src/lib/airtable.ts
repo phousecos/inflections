@@ -288,18 +288,18 @@ export async function updateArticle(
 
   if (updates.title) fields["Title"] = updates.title;
   if (updates.issueId) fields["Issue"] = [updates.issueId];
-  if (updates.contentType) fields["Content Type"] = updates.contentType;
+  if (updates.contentType) fields["Content Type"] = contentTypeToAirtable[updates.contentType];
   if (updates.primaryBrandId) fields["Primary Brand"] = [updates.primaryBrandId];
   if (updates.secondaryBrandIds && updates.secondaryBrandIds.length > 0) {
     fields["Secondary Brand"] = [updates.secondaryBrandIds[0]];
   }
-  if (updates.pillar) fields["Pillar"] = updates.pillar;
-  if (updates.status) fields["Status"] = updates.status;
+  if (updates.pillar) fields["Pillar"] = pillarToAirtable[updates.pillar];
+  if (updates.status) fields["Status"] = statusToAirtable[updates.status];
   if (updates.content) fields["Content"] = updates.content;
-  if (updates.excerpt) fields["Excerpt"] = updates.excerpt;
-  if (updates.metaDescription) fields["Meta Description"] = updates.metaDescription;
+  if (updates.excerpt !== undefined) fields["Excerpt"] = updates.excerpt;
+  if (updates.metaDescription !== undefined) fields["Meta Description"] = updates.metaDescription;
   if (updates.featuredImageUrl) fields["Featured Image URL"] = updates.featuredImageUrl;
-  if (updates.publishDate) fields["Publish Date"] = updates.publishDate;
+  if (updates.publishDate !== undefined) fields["Publish Date"] = updates.publishDate;
 
   await base(TABLES.ARTICLES).update(id, fields);
 }
@@ -414,9 +414,10 @@ export async function updateLinkedInPost(
 
   if (updates.title) fields["Post Title"] = updates.title;
   if (updates.content) fields["Content"] = updates.content;
-  if (updates.status) fields["Status"] = updates.status;
-  if (updates.scheduledDate) fields["Scheduled Date"] = updates.scheduledDate;
-  if (updates.hashtags) fields["Hashtags"] = updates.hashtags;
+  if (updates.status) fields["Status"] = linkedInStatusToAirtable[updates.status];
+  if (updates.scheduledDate !== undefined) fields["Scheduled Date"] = updates.scheduledDate;
+  if (updates.scheduledTime !== undefined) fields["Scheduled Time"] = updates.scheduledTime;
+  if (updates.hashtags !== undefined) fields["Hashtags"] = updates.hashtags;
 
   await base(TABLES.LINKEDIN_POSTS).update(id, fields);
 }

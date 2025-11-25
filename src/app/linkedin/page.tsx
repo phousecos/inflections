@@ -14,6 +14,8 @@ import {
   Trash2,
   Loader2,
   CheckCircle,
+  X,
+  Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -48,6 +50,17 @@ export default function LinkedInPage() {
   const [filterBrand, setFilterBrand] = useState<string>("all");
   const [filterPostType, setFilterPostType] = useState<LinkedInPostType | "all">("all");
   const [showFilters, setShowFilters] = useState(false);
+
+  // Edit modal state
+  const [editingPost, setEditingPost] = useState<LinkedInPost | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [editForm, setEditForm] = useState({
+    content: "",
+    hashtags: "",
+    status: "draft" as LinkedInPostStatus,
+    scheduledDate: "",
+    scheduledTime: "",
+  });
 
   // Fetch posts and brands
   useEffect(() => {
@@ -103,6 +116,45 @@ export default function LinkedInPage() {
       alert("Copied to clipboard!");
     } catch (err) {
       alert("Failed to copy");
+    }
+  };
+
+  const openEditModal = (post: LinkedInPost) => {
+    setEditForm({
+      content: post.content,
+      hashtags: post.hashtags || "",
+      status: post.status,
+      scheduledDate: post.scheduledDate || "",
+      scheduledTime: post.scheduledTime || "",
+    });
+    setEditingPost(post);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingPost) return;
+
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/airtable/linkedin/${editingPost.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editForm),
+      });
+
+      if (!response.ok) throw new Error("Failed to update post");
+
+      // Update local state
+      setPosts((prev) =>
+        prev.map((p) =>
+          p.id === editingPost.id ? { ...p, ...editForm, characterCount: editForm.content.length } : p
+        )
+      );
+
+      setEditingPost(null);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -336,7 +388,10 @@ export default function LinkedInPage() {
 
               {/* Actions */}
               <div className="flex items-center gap-2 mt-4 pt-4 border-t border-studio-border">
-                <button className="flex-1 btn-secondary text-sm">
+                <button 
+                  onClick={() => openEditModal(post)}
+                  className="flex-1 btn-secondary text-sm"
+                >
                   <Edit className="w-4 h-4" />
                   Edit
                 </button>
@@ -346,6 +401,106 @@ export default function LinkedInPage() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editingPost && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-studio-border flex items-center justify-between sticky top-0 bg-white">
+              <h2 className="text-xl font-display font-semibold">Edit LinkedIn Post</h2>
+              <button
+                onClick={() => setEditingPost(null)}
+                className="p-2 hover:bg-studio-bg rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="label">Content</label>
+                <textarea
+                  className="textarea"
+                  rows={8}
+                  value={editForm.content}
+                  onChange={(e) => setEditForm({ ...editForm, content: e.target.value })}
+                />
+                <p className="text-xs text-studio-text-muted mt-1">
+                  {editForm.content.length} characters
+                </p>
+              </div>
+
+              <div>
+                <label className="label">Hashtags</label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="#hashtag1 #hashtag2"
+                  value={editForm.hashtags}
+                  onChange={(e) => setEditForm({ ...editForm, hashtags: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="label">Status</label>
+                  <select
+                    className="select"
+                    value={editForm.status}
+                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value as LinkedInPostStatus })}
+                  >
+                    {Object.entries(statusLabels).map(([key, label]) => (
+                      <option key={key} value={key}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="label">Scheduled Date</label>
+                  <input
+                    type="date"
+                    className="input"
+                    value={editForm.scheduledDate}
+                    onChange={(e) => setEditForm({ ...editForm, scheduledDate: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="label">Scheduled Time (optional)</label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="e.g., 9:00 AM"
+                  value={editForm.scheduledTime}
+                  onChange={(e) => setEditForm({ ...editForm, scheduledTime: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-studio-border flex justify-end gap-3 sticky bottom-0 bg-white">
+              <button
+                onClick={() => setEditingPost(null)}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={saving}
+                className="btn-primary"
+              >
+                {saving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                Save Changes
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

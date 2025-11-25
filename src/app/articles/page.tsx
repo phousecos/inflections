@@ -13,6 +13,8 @@ import {
   ExternalLink,
   Loader2,
   Image as ImageIcon,
+  X,
+  Save,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -36,6 +38,17 @@ export default function ArticlesPage() {
   const [filterPillar, setFilterPillar] = useState<ContentPillar | "all">("all");
   const [filterContentType, setFilterContentType] = useState<ContentType | "all">("all");
   const [showFilters, setShowFilters] = useState(false);
+
+  // Edit modal state
+  const [editingArticle, setEditingArticle] = useState<Article | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [editForm, setEditForm] = useState({
+    title: "",
+    excerpt: "",
+    metaDescription: "",
+    status: "drafting" as ArticleStatus,
+    publishDate: "",
+  });
 
   // Fetch articles and brands
   useEffect(() => {
@@ -92,6 +105,45 @@ export default function ArticlesPage() {
       .trim()
       .split(/\s+/)
       .filter((word) => word.length > 0).length;
+  };
+
+  const openEditModal = (article: Article) => {
+    setEditForm({
+      title: article.title,
+      excerpt: article.excerpt || "",
+      metaDescription: article.metaDescription || "",
+      status: article.status,
+      publishDate: article.publishDate || "",
+    });
+    setEditingArticle(article);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingArticle) return;
+
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/airtable/articles/${editingArticle.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(editForm),
+      });
+
+      if (!response.ok) throw new Error("Failed to update article");
+
+      // Update local state
+      setArticles((prev) =>
+        prev.map((a) =>
+          a.id === editingArticle.id ? { ...a, ...editForm } : a
+        )
+      );
+
+      setEditingArticle(null);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (loading) {
@@ -355,6 +407,7 @@ export default function ArticlesPage() {
                         </a>
                       )}
                       <button
+                        onClick={() => openEditModal(article)}
                         className="p-2 hover:bg-studio-bg rounded-lg transition-colors"
                         title="Edit"
                       >
@@ -366,6 +419,101 @@ export default function ArticlesPage() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editingArticle && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="p-6 border-b border-studio-border flex items-center justify-between sticky top-0 bg-white">
+              <h2 className="text-xl font-display font-semibold">Edit Article</h2>
+              <button
+                onClick={() => setEditingArticle(null)}
+                className="p-2 hover:bg-studio-bg rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="label">Title</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={editForm.title}
+                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="label">Excerpt</label>
+                <textarea
+                  className="textarea"
+                  rows={3}
+                  value={editForm.excerpt}
+                  onChange={(e) => setEditForm({ ...editForm, excerpt: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="label">Meta Description</label>
+                <textarea
+                  className="textarea"
+                  rows={2}
+                  value={editForm.metaDescription}
+                  onChange={(e) => setEditForm({ ...editForm, metaDescription: e.target.value })}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="label">Status</label>
+                  <select
+                    className="select"
+                    value={editForm.status}
+                    onChange={(e) => setEditForm({ ...editForm, status: e.target.value as ArticleStatus })}
+                  >
+                    {Object.entries(articleStatusConfig).map(([key, config]) => (
+                      <option key={key} value={key}>{config.label}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="label">Publish Date</label>
+                  <input
+                    type="date"
+                    className="input"
+                    value={editForm.publishDate}
+                    onChange={(e) => setEditForm({ ...editForm, publishDate: e.target.value })}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-studio-border flex justify-end gap-3 sticky bottom-0 bg-white">
+              <button
+                onClick={() => setEditingArticle(null)}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                disabled={saving}
+                className="btn-primary"
+              >
+                {saving ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Save className="w-4 h-4" />
+                )}
+                Save Changes
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
